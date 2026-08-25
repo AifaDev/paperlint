@@ -51,8 +51,10 @@ English, Arabic and French — is the vocabulary this layer uses and the source
 of the abstention rules in `src/matcher.ts`. Credit it wherever you use it; see
 [`../CREDITS.md`](../CREDITS.md).
 
-To bundle it, drop the file at `data/glossary.json` - it is picked up
-automatically, in either accepted shape, with no configuration.
+It **ships in this repository** at `data/glossary.json`, in the attributed
+envelope shown above, and is loaded with no configuration. To install a
+different vocabulary, use `npm run glossary:install -- <path> --name "Its Name"`,
+which wraps a raw export in the same envelope so its credit travels with it.
 
 ## Why the abstention rules exist
 

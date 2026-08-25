@@ -40,7 +40,7 @@ is not OpenAI-compatible and is not supported here.)
 
 | Layer | What it checks | Needs |
 |---|---|---|
-| Glossary near-miss | terms that nearly match a canonical glossary entry ("kernel support machine" → "Kernel Support Vector Machine") | a glossary — a generic example ships; point `PAPERLINT_GLOSSARY` at [ICAIRE's AI Glossary](https://icaire.org/glossary) or your own ([format](data/README.md)) |
+| Glossary near-miss | terms that nearly match a canonical glossary entry ("kernel support machine" → "Kernel Support Vector Machine") | none — the [ICAIRE AI Glossary](https://icaire.org/glossary) (1,297 terms) ships in `data/glossary.json` and loads automatically; `PAPERLINT_GLOSSARY` swaps in your own ([format](data/README.md)) |
 | Citation resolution | every DOI/arXiv id resolves, and to the work the prose describes (Crossref → DataCite → doi.org; arXiv → OpenAlex fallback) | network |
 | Retraction check | a cited work that was retracted/withdrawn — read from the same Crossref payload, zero extra requests | network |
 | Reference & float integrity | cited-but-not-listed, listed-but-never-cited, duplicates, missing years; figures/tables captioned but never referenced, or referenced but missing — abstains unless the style is really in use | nothing |

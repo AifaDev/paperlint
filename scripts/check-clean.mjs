@@ -67,6 +67,10 @@ const ATTRIBUTION_FILES = new Set([
   "PRODUCT.md",
   "web/index.html",
   "web/server.mjs",
+  // The bundled vocabulary names its owner in its own attribution header. Only
+  // that header trips the gate — with this exemption removed the 1,297 entries
+  // themselves produce no hits, so the data is clean and the credit is kept.
+  "data/glossary.json",
 ]);
 const ATTRIBUTABLE = new Set([FORBIDDEN[0]]); // the organisation name only
 

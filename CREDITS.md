@@ -27,11 +27,15 @@ invented here:
 - **Single common words need an explicit allowlist.** Entries like *Security* or
   *Frame* would otherwise flood ordinary prose with hits.
 
-`data/glossary.example.json` is a small hand-written set of generic AI/ML terms
-so the layer is demonstrable the moment you clone. To review against the full
-ICAIRE AI Glossary instead, drop it at `data/glossary.json` and it is used
-automatically — the accepted shapes are documented in
-[`data/README.md`](data/README.md).
+**The glossary ships with this repository**, at `data/glossary.json` — 1,297
+entries in English, Arabic and French — and is loaded automatically. It carries
+its own attribution header so the credit survives the file being copied
+elsewhere. `data/glossary.example.json` remains as a 33-term stand-in showing
+the format; `PAPERLINT_GLOSSARY` overrides both.
+
+The vocabulary is ICAIRE's work, not paperlint's. The MIT licence on this
+repository's code does not govern it: if you reuse the vocabulary, keep the
+attribution with it.
 
 The glossary is ICAIRE's work and is credited as theirs wherever it is used. If
 you bundle a copy alongside this MIT-licensed code, note that the code licence
