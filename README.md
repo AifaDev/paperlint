@@ -40,7 +40,7 @@ is not OpenAI-compatible and is not supported here.)
 
 | Layer | What it checks | Needs |
 |---|---|---|
-| Glossary near-miss | terms that nearly match a canonical glossary entry ("kernel support machine" → "Kernel Support Vector Machine") | a glossary (example bundled; `PAPERLINT_GLOSSARY=` yours) |
+| Glossary near-miss | terms that nearly match a canonical glossary entry ("kernel support machine" → "Kernel Support Vector Machine") | a glossary — a generic example ships; point `PAPERLINT_GLOSSARY` at [ICAIRE's AI Glossary](https://icaire.org/glossary) or your own ([format](data/README.md)) |
 | Citation resolution | every DOI/arXiv id resolves, and to the work the prose describes (Crossref → DataCite → doi.org; arXiv → OpenAlex fallback) | network |
 | Retraction check | a cited work that was retracted/withdrawn — read from the same Crossref payload, zero extra requests | network |
 | Reference & float integrity | cited-but-not-listed, listed-but-never-cited, duplicates, missing years; figures/tables captioned but never referenced, or referenced but missing — abstains unless the style is really in use | nothing |
@@ -101,6 +101,18 @@ suite runs offline.
 - Outbound traffic is exactly: DOI/arXiv/OpenAlex lookups (identifier-only,
   hardcoded hosts — author-supplied URLs are never fetched) and, with a key,
   API calls to the provider you chose, carrying the text being reviewed.
+
+## Credits
+
+paperlint began as the submission-review pipeline for
+**[ICAIRE](https://icaire.org)**, the International Center for AI Research and
+Ethics, and the terminology layer was designed around
+**[ICAIRE's AI Glossary](https://icaire.org/glossary)** — that vocabulary is
+where this layer's abstention rules come from. The glossary is not
+redistributed here; the bundled example is a generic stand-in.
+
+Full attribution, including the two prior projects whose *negative* results
+shaped the architecture, is in **[CREDITS.md](CREDITS.md)**.
 
 ## Contributing
 

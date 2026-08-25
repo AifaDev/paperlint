@@ -1,6 +1,11 @@
 import { jaccard, normalizeTokens } from "./normalize";
 
 // Glossary matcher. Pure: takes terms + text, returns findings.
+//
+// DESIGNED AGAINST ICAIRE's AI Glossary (https://icaire.org/glossary) — the
+// bilingual vocabulary this layer was built for. Every precision rule below is
+// a lesson from that glossary rather than an idea invented here; see CREDITS.md.
+// The glossary itself is NOT redistributed with this repository.
 // No framework, no network — the same module runs under node --test, in the
 // threshold-sweep script, and inside a host application.
 //

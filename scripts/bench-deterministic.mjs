@@ -23,11 +23,17 @@
  * would show up — but it is weaker evidence than a low rate on AI prose would
  * be. (2) and (3) do not have this problem: the overclaim lexicon and the
  * metric vocabulary are domain-general.
+ *
+ * WHICH GLOSSARY: measurement (1) is only meaningful next to the vocabulary
+ * that produced it — a 33-term example and a 1,300-term curated glossary give
+ * very different rates. The active glossary is printed here and recorded in the
+ * eval record's `glossary` field; a number quoted without it means nothing.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { loadGlossary, toSeedTerms } from "./glossary-source.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const CMS = path.resolve(here, "..");
@@ -39,14 +45,9 @@ const { toMatcherTerms, buildIndex, matchDocument } = require(dist("matcher"));
 const { findOverclaimCandidates, findContradictionCandidates } = require(dist("claims"));
 const { quoteIsGrounded } = require(dist("claim-source"));
 
-const glossaryPath = process.env.PAPERLINT_GLOSSARY || path.join(CMS, "data", "glossary.example.json");
-const seed = JSON.parse(fs.readFileSync(glossaryPath, "utf8"));
-const index = buildIndex(
-  toMatcherTerms(
-    seed.filter((e) => e.en?.term).map((e) => ({ slug: e.slug, term: e.en.term, definition: e.en.definition ?? "", variants: [] })),
-    new Set(),
-  ),
-);
+const loadedGlossary = loadGlossary(CMS);
+console.log(`Glossary: ${loadedGlossary.label}`);
+const index = buildIndex(toMatcherTerms(toSeedTerms(loadedGlossary.entries), new Set()));
 
 const readJsonl = (file) => fs.readFileSync(file, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));
 
@@ -55,7 +56,11 @@ const CORPORA = [
   { id: "citation-integrity", file: path.join(BENCH, "citation-integrity", "Data", "multivers-format", "corpus.jsonl") },
 ];
 
-const report = { generated: "bench-deterministic.mjs", corpora: [] };
+const report = {
+  generated: "bench-deterministic.mjs",
+  glossary: { terms: loadedGlossary.entries.length, source: loadedGlossary.source, file: loadedGlossary.reason },
+  corpora: [],
+};
 
 for (const corpus of CORPORA) {
   if (!fs.existsSync(corpus.file)) {
@@ -168,6 +173,7 @@ report.caveat =
   "SciFact and Citation-Integrity are BIOMEDICAL corpora; the glossary is AI terminology, so a low " +
   "glossary false-positive rate here is partly domain mismatch rather than matcher precision. The D4 " +
   "and D2 candidate rates do not have this problem - their vocabularies are domain-general. Glossary " +
-  "findings listed above are UNADJUDICATED: an agent must not grade them (data/eval/README.md).";
+  "findings listed above are UNADJUDICATED: an agent must not grade them (data/eval/README.md). The " +
+  "glossary rate is only comparable against the same vocabulary - see the `glossary` field above.";
 fs.writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);
 console.log(`\nWrote ${path.relative(CMS, out)}`);

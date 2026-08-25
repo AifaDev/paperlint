@@ -82,6 +82,9 @@ svg.pic { stroke: var(--cyan); stroke-width: 3; fill: none; stroke-linecap: roun
 .card { background: var(--panel); border: 1.5px solid var(--line); border-radius: 14px; padding: 13px 16px 12px; display: flex; flex-direction: column; }
 .card .pic { height: 34px; align-self: flex-start; margin-bottom: 6px; }
 .card h3 { margin: 0 0 5px; font-family: var(--serif); font-weight: 600; font-size: 24px; color: #fff; }
+.card .what b { color: var(--cyan); font-weight: 500; }
+.credit { position: absolute; bottom: 20px; left: 96px; font-size: 16px; color: var(--dim); }
+.credit b { color: var(--cyan); font-weight: 500; }
 .card .what { font-size: 14.5px; line-height: 1.45; color: var(--ink); opacity: .8; margin-bottom: 8px; }
 .card .io { font-size: 14.5px; line-height: 1.55; color: var(--dim); margin-top: auto; padding-top: 7px; border-top: 1px dashed var(--line); }
 .io .in { background: var(--chip); border: 1px solid var(--line); padding: 1px 7px; border-radius: 5px; color: #fff; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
@@ -142,7 +145,7 @@ svg.pic { stroke: var(--cyan); stroke-width: 3; fill: none; stroke-linecap: roun
       <div class="head"><h2>12 checks, <span>no AI needed</span></h2></div>
       <div class="grid">
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M12 46 L34 14 L56 46 M21 34 H47"/><path d="M70 24 l8 8 l14 -16"/></svg>
-          <h3>Glossary term</h3><div class="what">Flags a phrase that nearly matches a canonical glossary term. Abstains when it could mean two terms.</div><div class="io"><span class="in">"kernel support machine"</span><span class="a">&rarr;</span><span class="out">&asymp; "Kernel Support Vector Machine"</span></div></div>
+          <h3>Glossary term</h3><div class="what">Flags a phrase that nearly matches a canonical term from the <b>ICAIRE AI Glossary</b>. Abstains when it could mean two terms.</div><div class="io"><span class="in">"kernel support machine"</span><span class="a">&rarr;</span><span class="out">&asymp; "Kernel Support Vector Machine"</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="14" y="10" width="46" height="40" rx="4"/><path d="M22 22 H52 M22 32 H52 M22 42 H38"/><path d="M72 20 L88 40 M88 20 L72 40"/></svg>
           <h3>Fake DOI</h3><div class="what">Resolves every DOI and arXiv id. Only accuses when Crossref, DataCite and doi.org all disown it — a timeout is never an accusation.</div><div class="io"><span class="in">doi:10.9999/not-real</span><span class="a">&rarr;</span><span class="out">unregistered — 3 registries agree</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><circle cx="30" cy="30" r="16"/><path d="M42 42 L58 58" transform="translate(0,-12)"/><path d="M66 16 h20 M66 28 h20 M66 40 h12"/></svg>
@@ -168,6 +171,7 @@ svg.pic { stroke: var(--cyan); stroke-width: 3; fill: none; stroke-linecap: roun
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><circle cx="34" cy="30" r="20"/><path d="M16 30 h36 M34 12 c8 10 8 26 0 36 M34 12 c-8 10 -8 26 0 36"/><path d="M68 40 l8 8 l14 -16"/></svg>
           <h3>Language gate</h3><div class="what">Language is detected from the text. A non-English draft is skipped with a reason, never misjudged.</div><div class="io"><span class="in">non-English draft</span><span class="a">&rarr;</span><span class="out">skipped honestly, never misjudged</span></div></div>
       </div>
+      <div class="credit">Terminology checked against the <b>ICAIRE AI Glossary</b> — icaire.org/glossary</div>
       <div class="pg">2 / 3</div>
     </section>
 

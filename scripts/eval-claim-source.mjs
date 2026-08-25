@@ -27,6 +27,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { loadGlossary, toSeedTerms } from "./glossary-source.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const CMS = path.resolve(here, "..");
@@ -50,12 +51,9 @@ const { toMatcherTerms } = require(dist("matcher"));
 const { CLAIM_SOURCE_PROMPT_VERSION } = require(dist("claim-source"));
 const { modelName } = require(dist("model"));
 
-const glossaryPath = process.env.PAPERLINT_GLOSSARY || path.join(CMS, "data", "glossary.example.json");
-const seed = JSON.parse(fs.readFileSync(glossaryPath, "utf8"));
-const glossary = toMatcherTerms(
-  seed.filter((e) => e.en?.term).map((e) => ({ slug: e.slug, term: e.en.term, definition: e.en.definition ?? "", variants: [] })),
-  new Set(),
-);
+const loadedGlossary = loadGlossary(CMS);
+console.log(`Glossary: ${loadedGlossary.label}`);
+const glossary = toMatcherTerms(toSeedTerms(loadedGlossary.entries), new Set());
 
 // One process-lifetime citation cache: three runs of the same document must
 // not re-resolve the same twelve identifiers nine times over.

@@ -29,6 +29,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { loadGlossary, toSeedTerms } from "./glossary-source.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const CMS = path.resolve(here, "..");
@@ -49,12 +50,9 @@ const { runReviewPipeline } = require(dist("index"));
 const { toMatcherTerms } = require(dist("matcher"));
 const { modelName } = require(dist("model"));
 
-const glossaryPath = process.env.PAPERLINT_GLOSSARY || path.join(CMS, "data", "glossary.example.json");
-const seed = JSON.parse(fs.readFileSync(glossaryPath, "utf8"));
-const glossary = toMatcherTerms(
-  seed.filter((e) => e.en?.term).map((e) => ({ slug: e.slug, term: e.en.term, definition: e.en.definition ?? "", variants: [] })),
-  new Set(),
-);
+const loadedGlossary = loadGlossary(CMS);
+console.log(`Glossary: ${loadedGlossary.label}`);
+const glossary = toMatcherTerms(toSeedTerms(loadedGlossary.entries), new Set());
 const cache = new Map();
 const citationStore = { get: async (k) => cache.get(k) ?? null, set: async (r) => void cache.set(r.identifier, r) };
 

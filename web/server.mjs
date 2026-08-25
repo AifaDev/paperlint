@@ -22,6 +22,7 @@ import http from "node:http";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { loadGlossary, toSeedTerms } from "../scripts/glossary-source.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, "..");
@@ -40,20 +41,18 @@ const { DEFAULT_MODEL, DEFAULT_BASE_URL, resolveBaseUrl } = require(dist("model"
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
 
 // ---------------------------------------------------------------------------
-// Glossary: the bundled example by default, PAPERLINT_GLOSSARY to override.
-const glossaryPath = process.env.PAPERLINT_GLOSSARY || path.join(ROOT, "data", "glossary.example.json");
+// Glossary: data/glossary.json if present, else the bundled example.
+// PAPERLINT_GLOSSARY overrides both. See scripts/glossary-source.mjs.
 let glossary = [];
+let glossarySource = null;
 try {
-  const seed = JSON.parse(fs.readFileSync(glossaryPath, "utf8"));
-  glossary = toMatcherTerms(
-    seed
-      .filter((entry) => entry.en?.term)
-      .map((entry) => ({ slug: entry.slug, term: entry.en.term, definition: entry.en.definition ?? "", variants: [] })),
-    new Set(),
-  );
-  console.log(`Glossary: ${glossary.length} terms from ${path.relative(ROOT, glossaryPath)}`);
-} catch {
-  console.warn(`Glossary not loaded (${glossaryPath}) — the glossary layer will be inactive.`);
+  const loaded = loadGlossary(ROOT);
+  glossary = toMatcherTerms(toSeedTerms(loaded.entries), new Set());
+  glossarySource = loaded.source;
+  console.log(`Glossary: ${loaded.label}`);
+  if (loaded.attribution) console.log(`  ${loaded.attribution}`);
+} catch (err) {
+  console.warn(`Glossary not loaded (${err.message}) — the glossary layer will be inactive.`);
 }
 
 // Citation cache lives for the process: edit-recheck loops re-resolve the same DOIs.
@@ -245,6 +244,7 @@ const server = http.createServer(async (req, res) => {
       ok: true,
       version: pkg.version,
       glossary_terms: glossary.length,
+      glossary_source: glossarySource,
       server_key: Boolean(process.env.GROQ_API_KEY),
       model_default: DEFAULT_MODEL,
       base_url_default: DEFAULT_BASE_URL,
