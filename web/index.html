@@ -180,10 +180,6 @@
 
     <p id="summary" class="summary" aria-live="polite"></p>
 
-    <h3 class="group-head">Always run <span id="det-note"></span></h3>
-    <ol class="checks" id="checks-deterministic"></ol>
-
-    <h3 class="group-head">Need an API key <span id="ai-note"></span></h3>
     <div id="ai-gap" class="notice" hidden>
       <div>
         <b>These 4 checks were not performed.</b>
@@ -195,7 +191,16 @@
       </div>
       <button id="open-key-2" class="ghost" type="button">Add a key and re-run</button>
     </div>
-    <ol class="checks" id="checks-ai"></ol>
+    <div class="checks-table">
+      <div class="col-head" aria-hidden="true">
+        <span></span>
+        <span class="c-check">Check &amp; what it looks for</span>
+        <span class="c-result">Result</span>
+        <span class="c-count">Issues</span>
+        <span></span>
+      </div>
+      <div id="checks-body"></div>
+    </div>
 
     <div class="stepnav">
       <button id="to-text" class="primary" type="button">
@@ -209,14 +214,26 @@
   <!-- ======================================================== STEP 3 — text -->
   <section id="step-text" class="panel" hidden>
     <div class="panel-head">
-      <h2>Your paper, marked up</h2>
-      <span class="head-note">Underlined words are the ones a check flagged.</span>
+      <h2>Your paper, with the issues marked</h2>
+      <span class="head-note">Your text is unchanged — these are annotations, not edits.</span>
+    </div>
+
+    <div class="untouched">
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <path d="M4 10.5l3.5 3.5L16 5.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      </svg>
+      <p>
+        <b>This is your original text, word for word.</b> paperlint never edits your paper — it only
+        marks the places where a check found something. Nothing below has been changed, added or removed.
+      </p>
     </div>
 
     <div class="ramp" id="ramp-text"></div>
     <p class="markkey">
-      <span class="mk mk-flag">underlined</span> = flagged by a check ·
-      <span class="mk mk-sel">boxed</span> = the one you have selected
+      <span class="mk mk-flag">highlighted<span class="mk-pin">01.1</span></span>
+      &nbsp;a check flagged this spot — the number is the issue's reference &nbsp;·&nbsp;
+      <span class="mk mk-sel">red<span class="mk-pin">01.1</span></span>
+      &nbsp;the one you have selected
     </p>
 
     <figure class="chart-wrap">

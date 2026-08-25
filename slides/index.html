@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>paperlint — the checks</title>
-<!-- Gambetta lives on Fontshare, Azeret Mono on Google. Offline viewers fall
-     back to Georgia / system mono and the deck stays fully legible. -->
-<link href="https://api.fontshare.com/v2/css?f[]=gambetta@600,500&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- The same self-hosted faces the portal uses, so the deck and the product
+     read as one thing. Served from /fonts.css; opened straight off disk the
+     stack falls back to the system grotesque and stays fully legible. -->
+<link rel="stylesheet" href="/fonts.css">
 <style>
 /* ===========================================
    FIXED 16:9 STAGE: MANDATORY BASE STYLES
@@ -32,89 +32,119 @@ img, video, canvas, svg { max-width: 100%; max-height: 100%; }
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
 }
 
-/* === THEME: BLUEPRINT =======================================
-   A drafting table at night: deep blue ground, faint grid, cyan
-   line-art pictograms. One card per check; one example per card.
+/* === THEME: THE SAME PAPER THE PORTAL USES ==================
+   Light ground, one workhorse grotesque, hairline rules, tabular
+   data. Colour reinforces a state that is already stated in words.
+   The deck and the product are deliberately indistinguishable.
    ============================================================ */
 :root {
-  --stage-bg: #0a1a2e;
-  --slide-bg: #0d2138;
-  --ink: #dce8f5;
-  --dim: #8fb0cc;
-  --cyan: #57c4ff;
-  --green: #7ce3a4;
-  --line: #2c527a;
-  --panel: rgba(15, 41, 70, 0.85);
-  --chip: #0a1e33;
-  --serif: Gambetta, Georgia, "Times New Roman", serif;
-  --mono: "Azeret Mono", ui-monospace, Menlo, Consolas, monospace;
+  --stage-bg: #E7EAEE;
+  --slide-bg: #FFFFFF;
+  --paper-2:  #F7F8FA;
+  --paper-3:  #EFF1F4;
+  --ink:      #16191D;
+  --ink-2:    #454E59;
+  --ink-3:    #626B76;
+  --rule:     #E1E5EA;
+  --rule-2:   #C8CFD7;
+  --link:     #14549E;
+  --sev:      #B02A18;
+  --clean:    #2C6E49;
+  --sans: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: "Spline Sans Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 .slide {
-  color: var(--ink); font-family: var(--mono);
+  color: var(--ink); font-family: var(--sans);
   background-color: var(--slide-bg);
-  background-image: linear-gradient(#16304d 1px, transparent 1px), linear-gradient(90deg, #16304d 1px, transparent 1px);
-  background-size: 60px 60px;
+  font-variant-numeric: tabular-nums;
 }
-.slug { position: absolute; top: 40px; left: 90px; right: 90px; display: flex; justify-content: space-between; font-size: 19px; letter-spacing: .12em; color: var(--dim); text-transform: uppercase; }
-.slug b { color: var(--cyan); font-weight: 500; }
+.slug {
+  position: absolute; top: 44px; left: 96px; right: 96px;
+  display: flex; justify-content: space-between;
+  font-size: 18px; letter-spacing: .08em; color: var(--ink-3); text-transform: uppercase;
+  font-weight: 600;
+  padding-bottom: 14px; border-bottom: 1px solid var(--rule);
+}
+.slug b { color: var(--ink); font-weight: 700; }
 
-/* pictograms */
-svg.pic { stroke: var(--cyan); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+/* pictograms: the same weight as the portal's marks */
+svg.pic { stroke: var(--link); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 
 /* === SLIDE 1: TITLE + FLOW ================================== */
-.s1 h1 { position: absolute; top: 170px; left: 100px; margin: 0; font-family: var(--serif); font-weight: 600; font-size: 180px; color: #fff; }
-.s1 h1 span { color: var(--cyan); }
-.s1 .sub { position: absolute; top: 420px; left: 104px; font-size: 28px; color: var(--dim); max-width: 1000px; line-height: 1.6; }
-.s1 .law { position: absolute; top: 560px; left: 104px; font-family: var(--serif); font-size: 44px; color: #fff; }
-.s1 .law u { text-decoration-color: var(--cyan); text-decoration-thickness: 4px; text-underline-offset: 10px; }
-.s1 .flow { position: absolute; left: 100px; right: 100px; bottom: 130px; display: flex; align-items: center; gap: 24px; }
-.s1 .step { flex: 1; border: 1.5px solid var(--line); background: var(--panel); border-radius: 14px; padding: 24px 10px; text-align: center; font-size: 23px; }
-.s1 .step small { display: block; margin-top: 6px; font-size: 17px; color: var(--dim); }
-.s1 .arr { color: var(--cyan); font-size: 40px; }
-.s1 .pg, .pg { position: absolute; bottom: 42px; right: 96px; font-size: 18px; color: #557499; }
+.s1 h1 {
+  position: absolute; top: 210px; left: 96px; margin: 0;
+  font-family: var(--sans); font-weight: 700; font-size: 150px;
+  letter-spacing: -0.035em; color: var(--ink);
+}
+.s1 h1 span { color: var(--link); }
+.s1 .sub { position: absolute; top: 400px; left: 100px; font-size: 27px; color: var(--ink-2); max-width: 1020px; line-height: 1.6; }
+.s1 .law {
+  position: absolute; top: 540px; left: 100px;
+  font-size: 40px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em;
+}
+.s1 .law u { text-decoration-color: var(--link); text-decoration-thickness: 4px; text-underline-offset: 10px; }
+.s1 .flow { position: absolute; left: 96px; right: 96px; bottom: 130px; display: flex; align-items: stretch; gap: 0; }
+.s1 .step {
+  flex: 1; border: 1px solid var(--rule-2); border-right: 0; background: var(--paper-2);
+  padding: 26px 22px; font-size: 22px; font-weight: 600;
+}
+.s1 .step:last-of-type { border-right: 1px solid var(--rule-2); }
+.s1 .step small { display: block; margin-top: 8px; font-size: 17px; font-weight: 400; color: var(--ink-2); line-height: 1.45; }
+.s1 .arr { display: none; }
+.pg { display: none; }  /* the slug already carries the page number */
 
 /* === CHECK-CARD GRID ======================================== */
-.head { position: absolute; top: 92px; left: 96px; }
-.head h2 { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 56px; color: #fff; }
-.head h2 span { color: var(--cyan); }
-.grid { position: absolute; left: 90px; right: 90px; top: 186px; bottom: 56px; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; gap: 18px; }
+.head { position: absolute; top: 108px; left: 96px; }
+.head h2 { margin: 0; font-family: var(--sans); font-weight: 700; font-size: 52px; letter-spacing: -0.025em; color: var(--ink); }
+.head h2 span { color: var(--link); }
+.grid { position: absolute; left: 96px; right: 96px; top: 196px; bottom: 56px; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; gap: 16px; }
 .g3 { grid-template-columns: repeat(2, 1fr); }
-.card { background: var(--panel); border: 1.5px solid var(--line); border-radius: 14px; padding: 13px 16px 12px; display: flex; flex-direction: column; }
-.card .pic { height: 34px; align-self: flex-start; margin-bottom: 6px; }
-.card h3 { margin: 0 0 5px; font-family: var(--serif); font-weight: 600; font-size: 24px; color: #fff; }
-.card .what b { color: var(--cyan); font-weight: 500; }
-.credit { position: absolute; bottom: 20px; left: 96px; font-size: 16px; color: var(--dim); }
-.credit b { color: var(--cyan); font-weight: 500; }
-.card .what { font-size: 14.5px; line-height: 1.45; color: var(--ink); opacity: .8; margin-bottom: 8px; }
-.card .io { font-size: 14.5px; line-height: 1.55; color: var(--dim); margin-top: auto; padding-top: 7px; border-top: 1px dashed var(--line); }
-.io .in { background: var(--chip); border: 1px solid var(--line); padding: 1px 7px; border-radius: 5px; color: #fff; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
-.io .a { color: var(--cyan); margin: 0 6px; }
-.io .out { color: var(--green); }
+.card {
+  background: var(--slide-bg); border: 1px solid var(--rule-2);
+  padding: 15px 17px 13px; display: flex; flex-direction: column;
+}
+.card .pic { height: 30px; align-self: flex-start; margin-bottom: 8px; }
+.card h3 { margin: 0 0 6px; font-family: var(--sans); font-weight: 600; font-size: 22px; letter-spacing: -0.01em; color: var(--ink); }
+.card .what { font-size: 14.5px; line-height: 1.5; color: var(--ink-2); margin-bottom: 9px; }
+.card .what b { color: var(--link); font-weight: 600; }
+.card .io {
+  font-family: var(--mono); font-size: 13.5px; line-height: 1.55; color: var(--ink-3);
+  margin-top: auto; padding-top: 9px; border-top: 1px solid var(--rule);
+}
+.io .in { background: var(--paper-3); border: 1px solid var(--rule); padding: 1px 6px; color: var(--ink); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.io .a { color: var(--link); margin: 0 5px; font-weight: 600; }
+.io .out { color: var(--sev); }
+.credit { position: absolute; bottom: 20px; left: 96px; font-size: 16px; color: var(--ink-3); }
+.credit b { color: var(--ink); font-weight: 600; }
 
 /* slide 3: bigger cards + a numbers rail */
 .s3 .grid { bottom: 250px; }
-.s3 .card h3 { font-size: 29px; }
-.s3 .card .io { font-size: 17px; }
-.s3 .card .what { font-size: 17px; }
-.nums { position: absolute; left: 90px; right: 90px; bottom: 68px; display: flex; gap: 22px; }
-.num { flex: 1; border: 1.5px solid var(--line); border-radius: 14px; background: var(--panel); padding: 20px 26px; }
-.num b { display: block; font-family: var(--serif); font-size: 52px; color: #fff; }
-.num span { font-size: 17px; color: var(--dim); line-height: 1.4; display: block; margin-top: 4px; }
-.num i { font-style: normal; color: var(--green); font-size: 15px; }
+.s3 .card h3 { font-size: 27px; }
+.s3 .card .io { font-size: 16px; }
+.s3 .card .what { font-size: 16.5px; }
+.nums { position: absolute; left: 96px; right: 96px; bottom: 68px; display: flex; gap: 0; }
+.num { flex: 1; border: 1px solid var(--rule-2); border-right: 0; background: var(--paper-2); padding: 20px 26px; }
+.num:last-child { border-right: 1px solid var(--rule-2); }
+.num b { display: block; font-family: var(--sans); font-weight: 700; font-size: 48px; letter-spacing: -0.02em; color: var(--ink); }
+.num span { font-size: 16px; color: var(--ink-2); line-height: 1.45; display: block; margin-top: 5px; }
+.num i { font-style: normal; color: var(--clean); font-size: 15px; font-weight: 600; }
 
 /* === REVEAL ================================================= */
-.reveal { opacity: 0; transform: translateY(16px); transition: opacity .5s ease, transform .5s ease; }
+.reveal { opacity: 0; transform: translateY(12px); transition: opacity .4s ease, transform .4s ease; }
 .slide.active .reveal { opacity: 1; transform: none; }
-.slide.active .grid > *:nth-child(2), .slide.active .r2 { transition-delay: .06s; }
-.slide.active .grid > *:nth-child(3), .slide.active .r3 { transition-delay: .12s; }
-.slide.active .grid > *:nth-child(4) { transition-delay: .18s; }
-.slide.active .grid > *:nth-child(5) { transition-delay: .24s; }
-.slide.active .grid > *:nth-child(6) { transition-delay: .3s; }
-.slide.active .grid > *:nth-child(7) { transition-delay: .36s; }
-.slide.active .grid > *:nth-child(8) { transition-delay: .42s; }
-.slide.active .grid > *:nth-child(n+9) { transition-delay: .48s; }
+.slide.active .grid > *:nth-child(2), .slide.active .r2 { transition-delay: .05s; }
+.slide.active .grid > *:nth-child(3), .slide.active .r3 { transition-delay: .1s; }
+.slide.active .grid > *:nth-child(4) { transition-delay: .15s; }
+.slide.active .grid > *:nth-child(5) { transition-delay: .2s; }
+.slide.active .grid > *:nth-child(6) { transition-delay: .25s; }
+.slide.active .grid > *:nth-child(7) { transition-delay: .3s; }
+.slide.active .grid > *:nth-child(8) { transition-delay: .35s; }
+.slide.active .grid > *:nth-child(n+9) { transition-delay: .4s; }
 
-.deck-controls { font-family: var(--mono); color: #7d95ad; font-size: 13px; background: rgba(10, 26, 46, .85); border: 1px solid var(--line); border-radius: 99px; padding: 6px 16px; }
+.deck-controls {
+  font-family: var(--sans); color: var(--ink-2); font-size: 13px; font-weight: 500;
+  background: #fff; border: 1px solid var(--rule-2); border-radius: 0; padding: 7px 16px;
+}
 </style>
 </head>
 <body>
@@ -132,7 +162,7 @@ svg.pic { stroke: var(--cyan); stroke-width: 3; fill: none; stroke-linecap: roun
         <div class="arr">&rarr;</div>
         <div class="step">12 deterministic checks<small>no key needed</small></div>
         <div class="arr">&rarr;</div>
-        <div class="step">4 AI judgements<small>optional — your Groq key</small></div>
+        <div class="step">4 AI judgements<small>optional — bring your own key</small></div>
         <div class="arr">&rarr;</div>
         <div class="step">advisory findings<small>you decide, always</small></div>
       </div>

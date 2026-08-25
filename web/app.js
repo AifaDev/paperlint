@@ -278,18 +278,13 @@ function render(data, fresh) {
   $("ramp-text").innerHTML = `<span>Dot size = severity</span>` +
     [0, 2, 4].map((m) => {
       const d = radiusOf(m) * 2;
-      return `<span class="item"><span class="dot" style="width:${d}px;height:${d}px"></span>${SEVERITY_WORD[m]}</span>`;
+      return `<span class="item"><span class="dot sev-${m}" style="width:${d}px;height:${d}px"></span>${SEVERITY_WORD[m]}</span>`;
     }).join("");
 
   const det = checks.filter((x) => !x.ai);
   const ai = checks.filter((x) => x.ai);
-  $("det-note").textContent = `${det.length} checks · no key needed`;
-  $("ai-note").textContent = ai.every((x) => x.status === "inactive")
-    ? `${ai.length} checks · not run`
-    : `${ai.length} checks`;
   $("ai-gap").hidden = !ai.every((x) => x.status === "inactive");
-  $("checks-deterministic").innerHTML = det.map((x, i) => checkRow(x, findings, i)).join("");
-  $("checks-ai").innerHTML = ai.map((x, i) => checkRow(x, findings, i)).join("");
+  $("checks-body").innerHTML = renderGroups(checks, findings);
 
   for (const badge of document.querySelectorAll(".info")) {
     badge.onclick = (e) => {
@@ -324,7 +319,7 @@ function fireReveal() {
   if (!pendingReveal) return;
   pendingReveal = false;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const lists = [$("checks-deterministic"), $("checks-ai")];
+  const lists = [$("checks-body")];
   for (const list of lists) {
     list.classList.remove("resolving");
     void list.offsetWidth;
@@ -336,14 +331,14 @@ function fireReveal() {
   }, 1200);
 }
 
-/* One check per row. The row is a grid on the <li>; the disclosure control is a
+/* One check per row. The <li> is the grid; the disclosure control is a
    transparent button stretched across it (big target, valid markup) and the
-   info button is a SIBLING, never nested inside another button — nesting is
-   invalid HTML and the parser hoists it out, which silently collapsed this
-   grid and overprinted the state words on the count. */
+   info button is a SIBLING — nesting a button inside a button is invalid and
+   the parser hoists it out, which collapses the grid. */
 function checkRow(check, findings, index) {
   const mine = findings.filter((f) => f.check === check.id);
   const state = stateWords(check);
+  const tone = check.count > 0 ? "" : check.status === "ran" ? " is-clean" : " is-idle";
   const expandable = mine.length > 0;
   const id = `issues-${check.id}`;
   return (
@@ -353,18 +348,46 @@ function checkRow(check, findings, index) {
         ` aria-label="Show the ${plural(mine.length, "issue", "issues")} from ${esc(check.label)}"></button>`
       : "") +
     stateMark(check) +
-    `<span class="check-name">${esc(check.label)}</span>` +
-    `<button class="info" type="button" aria-expanded="false"` +
-    ` aria-label="What does ${esc(check.label)} look for?">i` +
-    `<span class="tip" role="tooltip">${esc(check.about)}</span></button>` +
-    `<span class="check-state">${esc(state)}</span>` +
+    `<span class="check-body">` +
+      `<span class="check-name">${esc(check.label)}</span>` +
+      (check.ai ? `<span class="ai-tag">AI</span>` : "") +
+      (check.example
+        ? `<button class="info" type="button" aria-expanded="false"` +
+          ` aria-label="An example of what ${esc(check.label)} catches">i` +
+          `<span class="tip" role="tooltip">${esc(check.example)}</span></button>`
+        : "") +
+      `<span class="check-about">${esc(check.about)}</span>` +
+    `</span>` +
+    `<span class="check-state${tone}">${esc(state)}</span>` +
     `<span class="check-count">${check.gate ? "\u2014" : check.count}</span>` +
     (expandable
-      ? `<svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`
+      ? `<svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`
       : `<span class="chev-gap"></span>`) +
     `<ul class="issues" id="${id}" hidden>${mine.map((f) => issueRow(f)).join("")}</ul>` +
     `</li>`
   );
+}
+
+/* Checks grouped by what they examine, each group headed and counted. */
+function renderGroups(checks, findings) {
+  const order = [];
+  const byGroup = new Map();
+  checks.forEach((c) => {
+    const g = c.group || "Other";
+    if (!byGroup.has(g)) { byGroup.set(g, []); order.push(g); }
+    byGroup.get(g).push(c);
+  });
+  let n = 0;
+  return order.map((g) => {
+    const rows = byGroup.get(g);
+    const issues = rows.reduce((sum, c) => sum + c.count, 0);
+    const needKey = rows.every((c) => c.status === "inactive");
+    const note = needKey
+      ? `${plural(rows.length, "check", "checks")} \u00b7 not run`
+      : `${plural(rows.length, "check", "checks")} \u00b7 ${issues ? plural(issues, "issue", "issues") : "clean"}`;
+    return `<h3 class="group-head">${esc(g)}<span>${note}</span></h3>` +
+      `<ol class="checks">${rows.map((c) => checkRow(c, findings, n++)).join("")}</ol>`;
+  }).join("");
 }
 
 /* Plain words for every state — never a colour or an icon alone. */
@@ -399,22 +422,25 @@ function issueRow(f) {
   const d = radiusOf(mag) * 2;
   const addr = addressOf(f);
   const doi = String(f.source_ref || "").match(/^doi:(.+)$/);
-  const link = doi ? ` <a href="https://doi.org/${esc(doi[1])}" target="_blank" rel="noopener">open the DOI</a>` : "";
+  const link = doi ? `<a href="https://doi.org/${esc(doi[1])}" target="_blank" rel="noopener">Open the DOI</a>` : "";
+  // Every quote is labelled with whose words it is. A suggestion is labelled a
+  // suggestion — the tool never rewrites the author's text.
   const wrote = f.quoted_span
-    ? `<p class="obj-quote">Your text says <b>&ldquo;${esc(f.quoted_span)}&rdquo;</b>` +
-      (f.suggestion ? ` — the canonical form is <span class="obj-sugg">${esc(f.suggestion)}</span>` : "") + `</p>`
-    : "";
+    ? `<p class="quote-row"><span class="lead">Your text:</span> <span class="q">${esc(f.quoted_span)}</span></p>` : "";
+  const sugg = f.suggestion
+    ? `<p class="quote-row"><span class="lead">Suggested instead:</span> <span class="sugg">${esc(f.suggestion)}</span> <span>(a suggestion — nothing has been changed)</span></p>` : "";
   const src = f.evidence && f.evidence.source_quote
-    ? `<p class="obj-quote">The source says <b>&ldquo;${esc(f.evidence.source_quote)}&rdquo;</b></p>` : "";
-  const why = f.evidence && f.evidence.reason ? `<p class="obj-msg">${esc(f.evidence.reason)}</p>` : "";
+    ? `<p class="quote-row"><span class="lead">The cited source says:</span> <span class="q">${esc(f.evidence.source_quote)}</span></p>` : "";
+  const why = f.evidence && f.evidence.reason
+    ? `<p class="quote-row"><span class="lead">Why:</span> ${esc(f.evidence.reason)}</p>` : "";
   return (
-    `<li class="object" data-addr="${esc(addr)}">` +
-    `<span class="obj-mag"><span class="dot" style="width:${d}px;height:${d}px"></span></span>` +
+    `<li class="issue" data-addr="${esc(addr)}">` +
+    `<span class="issue-dot"><span class="dot sev-${mag}" style="width:${d}px;height:${d}px"></span></span>` +
     `<div>` +
-    `<div class="obj-addr"><span>${esc(addr)}</span>` +
-    `<span class="sep">${esc(SEVERITY_WORD[mag])}</span>` +
-    `<span class="sep">${f.decided_by === "deterministic" ? "found by code" : "judged by the model"}</span>${link}</div>` +
-    `<p class="obj-msg">${esc(f.message_en)}</p>` + wrote + src + why +
+    `<div class="issue-meta"><span class="addr">${esc(addr)}</span>` +
+    `<span>${esc(SEVERITY_WORD[mag])}</span>` +
+    `<span>${f.decided_by === "deterministic" ? "found by code" : "judged by the model"}</span>${link}</div>` +
+    `<p class="issue-msg">${esc(f.message_en)}</p>` + wrote + sugg + src + why +
     `</div></li>`
   );
 }
@@ -441,9 +467,12 @@ function paintManuscript() {
   for (const f of marks) {
     if (f.span_end > cursor) continue; // overlapping spans: first one wins
     pieces.push(esc(text.slice(f.span_end, cursor)));
+    const addr = addressOf(f);
     pieces.push(
-      `<mark data-addr="${esc(addressOf(f))}" tabindex="0" role="button">` +
-      esc(text.slice(f.span_start, f.span_end)) + `</mark>`,
+      `<mark data-addr="${esc(addr)}" tabindex="0" role="button"` +
+      ` aria-label="Flagged: ${esc(text.slice(f.span_start, f.span_end))}. Issue ${esc(addr)}.">` +
+      esc(text.slice(f.span_start, f.span_end)) +
+      `<span class="pin" aria-hidden="true">${esc(addr)}</span></mark>`,
     );
     cursor = f.span_start;
   }
@@ -495,14 +524,16 @@ function drawChart() {
   ctx.clearRect(0, 0, w, h);
 
   const css = getComputedStyle(document.documentElement);
-  const chalk = css.getPropertyValue("--chalk").trim() || "#E9E5DA";
-  const faint = css.getPropertyValue("--chalk-faint").trim() || "#64707E";
-  const amber = css.getPropertyValue("--amber").trim() || "#DDA04A";
-  const coral = css.getPropertyValue("--coral").trim() || "#DD4A2C";
+  const pick = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+  const ink = pick("--ink", "#16191D");
+  const faint = pick("--ink-3", "#626B76");
+  const rule = pick("--rule", "#E1E5EA");
+  const sel = pick("--sev-major", "#B02A18");
+  const SEV = { 0: pick("--sev-major", "#B02A18"), 2: pick("--sev-mod", "#8A5A0F"), 4: pick("--sev-minor", "#626B76") };
 
   // Reserve the label gutter from the widest label actually drawn, so an axis
   // name is ellipsised deliberately rather than clipped by the canvas edge.
-  ctx.font = '500 9px "Spline Sans Mono", monospace';
+  ctx.font = '600 10px "Public Sans", sans-serif';
   const rowsForWidth = (current.checks || []).filter((c) => c.count > 0);
   const widest = rowsForWidth.reduce((m, c) => Math.max(m, ctx.measureText(c.label.toUpperCase()).width), 0);
   const padL = Math.min(w * 0.42, Math.max(74, widest + 18));
@@ -514,11 +545,11 @@ function drawChart() {
   const rowH = plotH / rowCount;
 
   ctx.lineWidth = 1;
-  ctx.font = '500 9px "Spline Sans Mono", monospace';
+  ctx.font = '600 10px "Public Sans", sans-serif';
   ctx.textBaseline = "middle";
   for (let i = 0; i < rowCount; i += 1) {
     const y = padT + rowH * (i + 0.5);
-    ctx.strokeStyle = "rgba(233,229,218,0.10)";
+    ctx.strokeStyle = rule;
     ctx.beginPath(); ctx.moveTo(padL, Math.round(y) + 0.5); ctx.lineTo(w - padR, Math.round(y) + 0.5); ctx.stroke();
     ctx.fillStyle = faint;
     ctx.textAlign = "right";
@@ -531,12 +562,13 @@ function drawChart() {
     ctx.beginPath();
     ctx.moveTo(Math.round(x) + 0.5, padT);
     ctx.lineTo(Math.round(x) + 0.5, padT + plotH);
-    ctx.strokeStyle = p % 5 === 0 ? "rgba(233,229,218,0.18)" : "rgba(233,229,218,0.07)";
+    ctx.strokeStyle = p % 5 === 0 ? "#D2D8DF" : "#EDF0F3";
     ctx.stroke();
   }
   ctx.fillStyle = faint;
-  ctx.fillText("start of paper", padL + plotW * 0.08, h - padB / 2);
-  ctx.fillText("end", padL + plotW * 0.96, h - padB / 2);
+  ctx.font = '400 11px "Public Sans", sans-serif';
+  ctx.fillText("start of paper", padL + plotW * 0.09, h - padB / 2);
+  ctx.fillText("end", padL + plotW * 0.97, h - padB / 2);
 
   const textLen = Math.max(1, (current.text || "").length);
   chartPoints = [];
@@ -547,17 +579,16 @@ function drawChart() {
     const pos = Number.isInteger(f.span_start) ? Math.min(1, f.span_start / textLen) : 0.5;
     const x = padL + plotW * pos;
     const y = padT + rowH * (li + 0.5);
-    const r = radiusOf(magOf(f));
+    const mag = magOf(f);
+    const r = radiusOf(mag);
     const addr = addressOf(f);
-    const sel = addr === selectedId;
+    const isSel = addr === selectedId;
 
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = sel ? coral : chalk;
-    ctx.globalAlpha = sel ? 1 : 0.9;
+    ctx.fillStyle = isSel ? sel : (SEV[mag] || ink);
     ctx.fill();
-    ctx.globalAlpha = 1;
-    if (sel) {
-      ctx.strokeStyle = coral; ctx.lineWidth = 1;
+    if (isSel) {
+      ctx.strokeStyle = sel; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(x, y, r + 6, 0, Math.PI * 2); ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(x - r - 11, y); ctx.lineTo(x - r - 3, y);
@@ -570,8 +601,8 @@ function drawChart() {
   }
 
   if (!findings.length) {
-    ctx.fillStyle = amber;
-    ctx.font = '500 11px "Spline Sans Mono", monospace';
+    ctx.fillStyle = faint;
+    ctx.font = '500 13px "Public Sans", sans-serif';
     ctx.fillText("No issues to plot", padL + plotW / 2, padT + plotH / 2);
   }
 }

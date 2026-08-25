@@ -1,11 +1,13 @@
-/* Self-hosted so the page makes no network request at all — the footer's
-   privacy claim has to be true, and the world's type has to survive offline.
-   Latin subset only; these are the exact faces Google Fonts serves. */
-@font-face { font-family:'Spectral'; font-style:italic; font-weight:300; font-display:swap; src:url('/fonts/Spectral-300i.woff2') format('woff2'); }
-@font-face { font-family:'Spectral'; font-style:italic; font-weight:400; font-display:swap; src:url('/fonts/Spectral-400i.woff2') format('woff2'); }
-@font-face { font-family:'Spectral'; font-style:normal; font-weight:300; font-display:swap; src:url('/fonts/Spectral-300.woff2') format('woff2'); }
-@font-face { font-family:'Spectral'; font-style:normal; font-weight:400; font-display:swap; src:url('/fonts/Spectral-400.woff2') format('woff2'); }
-@font-face { font-family:'Spectral'; font-style:normal; font-weight:600; font-display:swap; src:url('/fonts/Spectral-600.woff2') format('woff2'); }
+/* Self-hosted: the page must make no network request at all, and the type
+   has to survive offline. Latin subset only.
+   Public Sans carries the interface — a workhorse face built for dense
+   functional reading, with true tabular figures. Spline Sans Mono carries
+   identifiers, counts and quoted spans, where character-level precision
+   is the point rather than a technical costume. */
+@font-face { font-family:'Public Sans'; font-style:normal; font-weight:400; font-display:swap; src:url('/fonts/PublicSans-400.woff2') format('woff2'); }
+@font-face { font-family:'Public Sans'; font-style:normal; font-weight:500; font-display:swap; src:url('/fonts/PublicSans-500.woff2') format('woff2'); }
+@font-face { font-family:'Public Sans'; font-style:normal; font-weight:600; font-display:swap; src:url('/fonts/PublicSans-600.woff2') format('woff2'); }
+@font-face { font-family:'Public Sans'; font-style:normal; font-weight:700; font-display:swap; src:url('/fonts/PublicSans-700.woff2') format('woff2'); }
 @font-face { font-family:'Spline Sans Mono'; font-style:normal; font-weight:400; font-display:swap; src:url('/fonts/SplineSansMono-400.woff2') format('woff2'); }
 @font-face { font-family:'Spline Sans Mono'; font-style:normal; font-weight:500; font-display:swap; src:url('/fonts/SplineSansMono-500.woff2') format('woff2'); }
 @font-face { font-family:'Spline Sans Mono'; font-style:normal; font-weight:600; font-display:swap; src:url('/fonts/SplineSansMono-600.woff2') format('woff2'); }
