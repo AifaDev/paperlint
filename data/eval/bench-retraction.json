@@ -1,0 +1,48 @@
+{
+  "generated_by": "scripts/bench-retraction.mjs",
+  "provenance": "Positives are retracted papers named by Crossref's own retraction NOTICES (update-to); the detector reads the PAPER's updated-by. Two separately deposited fields, so this measures whether the back-link is populated rather than re-reading our own input. Negatives are works with no update of any kind.",
+  "model_calls": 0,
+  "n": {
+    "positives": 150,
+    "negatives": 150
+  },
+  "resolved": {
+    "positives": 150,
+    "negatives": 150
+  },
+  "recall": {
+    "value": 1,
+    "ci95": [
+      0.975,
+      1
+    ],
+    "caught": 150
+  },
+  "false_positive_rate": {
+    "value": 0,
+    "ci95": [
+      0,
+      0.025
+    ],
+    "count": 0
+  },
+  "caught_by_notice_type": {
+    "retraction": 150
+  },
+  "caught_by_notice_source": {
+    "publisher": 91,
+    "retraction-watch": 59
+  },
+  "missed_examples": [],
+  "false_positive_examples": [],
+  "limits": {
+    "what_this_measures": "MECHANISM recall: given a DOI that Crossref knows is retracted, does the pipeline read the back-link and say so. It does NOT measure how often a submission cites a retracted paper \u2014 that base rate is low (order of one finding per few hundred submissions), and this check is taken for the single-instance reputational cost of publishing on a retracted source, not for recall.",
+    "cache_delay": "CACHE_TTL_MS.found is 30 days, so a paper retracted AFTER we cached it goes unflagged for up to 30 days. Accepted: retraction is permanent once it happens, so the check is late, never wrong.",
+    "coverage": "DOI-only by construction. arXiv identifiers short-circuit past Crossref, and DataCite carries no equivalent field \u2014 both record retracted:null, which means NOT CHECKED rather than clean.",
+    "expression_of_concern_excluded": "269 works carry one. An open investigation is not a withdrawal, and telling an author their source was retracted when it was not is the worst output this pipeline can produce."
+  },
+  "what_the_plan_got_wrong": {
+    "wrong_field": "The plan said read `update-to`. That lives on the retraction NOTICE and points back at the paper. The paper carries `updated-by`. Reading update-to would have flagged nothing on any real submission \u2014 0% recall, silently, since a check that never fires is indistinguishable from a clean corpus.",
+    "wrong_filter": "The plan said filter to source === 'retraction-watch'. Measured here: 91 of 150 real retractions were deposited by `publisher`. That filter alone would have cut recall from 100% to ~39%."
+  }
+}

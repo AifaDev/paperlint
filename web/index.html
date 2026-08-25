@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>paperlint</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>paperlint</h1>
+  <p>Paste or upload a manuscript. Every layer reports what it found — and says honestly when it did not run. Advisory only; nothing leaves this machine except DOI/arXiv lookups and (with a key) model calls.</p>
+</header>
+<main>
+  <aside id="rail">
+    <div class="rail-head">
+      <b>History</b>
+      <button id="clear-history" class="link" type="button">clear</button>
+    </div>
+    <div id="history-list"><div class="empty small">No runs yet.</div></div>
+  </aside>
+
+  <section id="input-pane">
+    <div class="tabs">
+      <button id="tab-paste" class="tab active" type="button">Paste</button>
+      <button id="tab-upload" class="tab" type="button">Upload</button>
+    </div>
+
+    <div id="pane-paste">
+      <label for="text">Manuscript text (HTML, Markdown, or plain)</label>
+      <textarea id="text" placeholder="Paste a research draft here…"></textarea>
+    </div>
+
+    <div id="pane-upload" hidden>
+      <div id="drop">
+        <p><b>Drop a .pdf or .docx here</b> — or</p>
+        <input id="file" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+        <p class="small" id="drop-status">Extracted text fills the editor so you can see (and trim) exactly what will be reviewed.</p>
+      </div>
+    </div>
+
+    <label for="brief" style="margin-top:12px">Summary / abstract (optional — checked against the body)</label>
+    <input id="brief" type="text" placeholder="e.g. Adoption could reach 45% by 2030.">
+
+    <details id="key-panel">
+      <summary>Model layers (D1–D4) — API key</summary>
+      <div class="key-row">
+        <input id="key" type="password" placeholder="Groq API key (stored in this browser only)">
+        <button id="key-show" class="sec" type="button" title="show/hide">&#128065;</button>
+        <button id="key-test" class="sec" type="button">Test key</button>
+        <button id="key-clear" class="sec" type="button">Clear</button>
+      </div>
+      <p class="small">The key stays in this browser's localStorage and is sent only to your local server per run — never stored on disk, never logged, never part of history.</p>
+    </details>
+
+    <div class="row">
+      <button id="run">Run review</button>
+      <button id="sample" class="sec" type="button">Load sample</button>
+      <span id="model-state" class="pill off">model layers: off</span>
+      <span id="status" class="small"></span>
+    </div>
+  </section>
+
+  <section id="results-pane">
+    <div id="banner" hidden></div>
+    <div class="card">
+      <div class="stats" id="stats"><div class="empty">Results appear here.</div></div>
+      <div id="layers"></div>
+    </div>
+  </section>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>

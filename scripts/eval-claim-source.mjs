@@ -1,0 +1,142 @@
+#!/usr/bin/env node
+/**
+ * eval-claim-source.mjs — the first REAL number for the model layer.
+ *
+ *   cd .
+ *   REVIEW_AI_ENABLED=true GROQ_API_KEY=gsk_... \
+ *     node scripts/eval-claim-source.mjs <path-to-draft.txt>
+ *
+ * Runs D1 (claim vs cited source) over a real document and reports what the
+ * model actually did — not just what it flagged.
+ *
+ * WHAT THIS MEASURES, stated plainly because the distinction is the whole
+ * point: the CLEAN pass measures PRECISION. Findings on a paper whose
+ * citations are correct are false positives, and the bar is zero. It measures
+ * nothing about recall; a model that answers "mentioning" to everything scores
+ * perfectly here, which is exactly why the verdict distribution is printed
+ * beside the finding count.
+ *
+ * DETERMINISM: the document is run three times at temperature 0. A finding
+ * that does not appear in all three runs is treated as a FAILED finding — an
+ * unstable checker cannot be adjudicated, because the thing a human ruled on
+ * is not the thing the next run produces.
+ *
+ * The source document is never committed. See data/eval/README.md.
+ */
+import fs from "node:fs";
+import path from "node:path";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const CMS = path.resolve(here, "..");
+const require = createRequire(path.join(CMS, "package.json"));
+const dist = (name) => path.join(CMS, "dist", `${name}.js`);
+
+const input = process.argv[2];
+if (!input) {
+  console.error("usage: node scripts/eval-claim-source.mjs <path-to-draft.txt> [label]");
+  process.exit(1);
+}
+if (!process.env.GROQ_API_KEY) {
+  console.error("GROQ_API_KEY is not set. This script measures the model layer; without a key there is nothing to measure.");
+  process.exit(1);
+}
+const label = process.argv[3] ?? path.basename(input);
+const text = fs.readFileSync(input, "utf8");
+
+const { runReviewPipeline } = require(dist("index"));
+const { toMatcherTerms } = require(dist("matcher"));
+const { CLAIM_SOURCE_PROMPT_VERSION } = require(dist("claim-source"));
+const { modelName } = require(dist("model"));
+
+const glossaryPath = process.env.PAPERLINT_GLOSSARY || path.join(CMS, "data", "glossary.example.json");
+const seed = JSON.parse(fs.readFileSync(glossaryPath, "utf8"));
+const glossary = toMatcherTerms(
+  seed.filter((e) => e.en?.term).map((e) => ({ slug: e.slug, term: e.en.term, definition: e.en.definition ?? "", variants: [] })),
+  new Set(),
+);
+
+// One process-lifetime citation cache: three runs of the same document must
+// not re-resolve the same twelve identifiers nine times over.
+const cache = new Map();
+const citationStore = { get: async (k) => cache.get(k) ?? null, set: async (r) => void cache.set(r.identifier, r) };
+
+const runOnce = async (content, contentBrief = "") => {
+  const started = Date.now();
+  const result = await runReviewPipeline(
+    { content, contentBrief, rowLocale: "en" },
+    {
+      glossary,
+      citationStore,
+      resolveOptions: { mailto: process.env.CROSSREF_MAILTO },
+      modelEnabled: true,
+    },
+  );
+  return { ...result, elapsedMs: Date.now() - started };
+};
+
+console.log(`${label}\nmodel: ${modelName()}  prompt: ${CLAIM_SOURCE_PROMPT_VERSION}\n`);
+
+const RUNS = 3;
+const runs = [];
+for (let i = 0; i < RUNS; i += 1) {
+  const result = await runOnce(text);
+  runs.push(result);
+  const c = result.counts;
+  console.log(
+    `run ${i + 1}: candidates=${c.claim_candidates} findings=${c.claim_findings} ` +
+      `verdicts=${JSON.stringify(result.model_verdicts)} ungrounded_dropped=${c.ai_dropped_ungrounded} ` +
+      `refuted=${c.ai_refuted} errors=${c.ai_errors} calls=${c.ai_calls} ` +
+      `tokens=${c.ai_input_tokens}/${c.ai_output_tokens} ${result.elapsedMs}ms${result.partial ? " PARTIAL" : ""}`,
+  );
+}
+
+// A finding is STABLE only if the same span+source appears in every run.
+const key = (finding) => `${finding.span_start}:${finding.source_ref}`;
+const perRun = runs.map((run) => new Set(run.findings.filter((f) => f.category === "claim").map(key)));
+const everywhere = [...(perRun[0] ?? [])].filter((k) => perRun.every((set) => set.has(k)));
+const anywhere = new Set(perRun.flatMap((set) => [...set]));
+const unstable = [...anywhere].filter((k) => !everywhere.includes(k));
+
+console.log(
+  `\nstability across ${RUNS} runs at temperature 0: ${everywhere.length} stable, ${unstable.length} unstable` +
+    (unstable.length ? "  <-- unstable findings are FAILED findings" : ""),
+);
+
+const claimFindings = runs[0].findings.filter((f) => f.category === "claim");
+for (const finding of claimFindings) {
+  console.log(`\n  [${everywhere.includes(key(finding)) ? "stable" : "UNSTABLE"}] ${finding.source_ref}`);
+  console.log(`    author wrote : "${finding.evidence.claim_quote}"`);
+  console.log(`    source says  : "${finding.evidence.source_quote}"`);
+  console.log(`    reason       : ${finding.evidence.reason}`);
+}
+
+const record = {
+  provenance:
+    "Generated by scripts/eval-claim-source.mjs over a real research draft held OUTSIDE the repo. " +
+    "The CLEAN pass measures PRECISION only: every finding here is a false positive unless a human rules otherwise, " +
+    "and a model answering 'mentioning' to everything would score perfectly - which is why model_verdicts is recorded " +
+    "beside the count. verdict is null until a human adjudicates; agent-seeded evals do not self-grade " +
+    "(see data/eval/README.md).",
+  document: { label, words: text.split(/\s+/).filter(Boolean).length },
+  model: modelName(),
+  prompt_version: CLAIM_SOURCE_PROMPT_VERSION,
+  runs: runs.map((run) => ({ counts: run.counts, model_verdicts: run.model_verdicts, partial: run.partial, elapsed_ms: run.elapsedMs })),
+  stability: { runs: RUNS, stable: everywhere.length, unstable: unstable.length },
+  findings: claimFindings.map((finding) => ({
+    source_ref: finding.source_ref,
+    decided_by: finding.decided_by,
+    stable: everywhere.includes(key(finding)),
+    claim_quote: finding.evidence.claim_quote,
+    source_quote: finding.evidence.source_quote,
+    reason: finding.evidence.reason,
+    message_en: finding.message_en,
+    verdict: null,
+  })),
+};
+
+const out = path.join(CMS, "data", "eval", "claim-source-eval.json");
+fs.mkdirSync(path.dirname(out), { recursive: true });
+fs.writeFileSync(out, `${JSON.stringify(record, null, 2)}\n`);
+console.log(`\nWrote ${path.relative(CMS, out)} — adjudicate each row before enabling the check.`);

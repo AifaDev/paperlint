@@ -1,0 +1,147 @@
+{
+  "generated_by": "scripts/bench-refutation.mjs",
+  "question": "The shipped D1 path adds an independent refutation call that the 240-case benchmark never exercised. What does it drop?",
+  "replayed_from": "the 240-case Citation-Integrity checkpoint \u2014 the cases that scored `unsupported`",
+  "n": {
+    "fired": 20,
+    "answered": 20
+  },
+  "killed": {
+    "true_positives": 10,
+    "false_positives": 0
+  },
+  "before": {
+    "tp": 17,
+    "fp": 3
+  },
+  "after": {
+    "tp": 7,
+    "fp": 3
+  },
+  "precision": {
+    "before": 0.85,
+    "after": 0.7
+  },
+  "note": "Refutation can only DROP findings, so precision can only rise and recall can only fall. This is the cost side of that trade, measured rather than assumed.",
+  "rows": [
+    {
+      "gold": "NOT_SUBSTANTIATE",
+      "refuted": true,
+      "reason": "The abstract focuses on COVID-19, ACE2, and renin\u2011angiotensin system blockers, and does not discuss the role of the renin\u2011angiotensin system in electrolyte home"
+    },
+    {
+      "gold": "NOT_SUBSTANTIATE",
+      "refuted": false,
+      "reason": "The abstract does not provide evidence of increased ACE2 expression in patients with cardiovascular disease; it only discusses lack of data on ACE inhibitor eff"
+    },
+    {
+      "gold": "NOT_SUBSTANTIATE",
+      "refuted": true,
+      "reason": "The abstract explicitly states that no mutant, including R275W, colocalized with mitochondria, indicating that ParkinR275W does not translocate to depolarized m"
+    },
+    {
+      "gold": "OVERSIMPLIFY",
+      "refuted": false,
+      "reason": "The abstract explicitly states that relatively low antibody titers are sufficient for protection against SARS\u2011CoV\u20112, which directly bears on the manuscript\u2019s qu"
+    },
+    {
+      "gold": "MISQUOTE",
+      "refuted": true,
+      "reason": "The abstract provides no information about treating HeLa cells with MG132 for 8\u202fh; it is silent on the experimental details cited in the manuscript sentence. Th"
+    },
+    {
+      "gold": "MISQUOTE",
+      "refuted": true,
+      "reason": "The abstract only mentions PINK1 accumulation and does not discuss MG132 treatment or its duration, so it provides no support for the manuscript sentence about "
+    },
+    {
+      "gold": "MISQUOTE",
+      "refuted": true,
+      "reason": "The abstract provides no information about treating HeLa cells with MG132 for 8\u202fh; it only mentions PINK1 accumulation after inhibition of voltage-sensitive cle"
+    },
+    {
+      "gold": "NOT_SUBSTANTIATE",
+      "refuted": true,
+      "reason": "The abstract does not provide any evidence about the efficiency of knockdown of endogenous PARL in HeLa cells; it merely notes that endogenous PARL could not be"
+    },
+    {
+      "gold": "NOT_SUBSTANTIATE",
+      "refuted": true,
+      "reason": "The abstract does not provide evidence about the sufficiency of knockdown of endogenous PARL in HeLa cells; it merely notes that endogenous PARL could not be de"
+    },
+    {
+      "gold": "ACCURATE",
+      "refuted": false,
+      "reason": "The abstract describes a human carnitine challenge study focusing on metabolism to TMAO, not mouse studies or the effect of red meat consumption on cardiovascul"
+    },
+    {
+      "gold": "CONTRADICT",
+      "refuted": false,
+      "reason": "The abstract reports that TMPRSS2 expression levels are similar in asthma and health, directly contradicting the manuscript claim of increased TMPRSS2 expressio"
+    },
+    {
+      "gold": "CONTRADICT",
+      "refuted": true,
+      "reason": "The abstract explicitly states that ACE2 expression levels were similar in asthma and healthy individuals, directly contradicting the manuscript claim that ACE2"
+    },
+    {
+      "gold": "OVERSIMPLIFY",
+      "refuted": false,
+      "reason": "The abstract explicitly states that ACE2 expression levels are similar in asthma patients and healthy controls, which contradicts the manuscript's claim that al"
+    },
+    {
+      "gold": "NOT_SUBSTANTIATE",
+      "refuted": true,
+      "reason": "The abstract reports that there was no difference in ACE2 or TMPRSS2 sputum gene expression between subjects, which directly contradicts the manuscript claim th"
+    },
+    {
+      "gold": "CONTRADICT",
+      "refuted": false,
+      "reason": "The abstract reports that inhaled corticosteroid use is associated with lower ACE2 expression, which directly contradicts the manuscript sentence claiming ACE2 "
+    },
+    {
+      "gold": "CONTRADICT",
+      "refuted": false,
+      "reason": "The abstract states that ACE2 expression levels are similar in asthma and health, directly contradicting the manuscript\u2019s claim of reduced ACE2 expression. Ther"
+    },
+    {
+      "gold": "CONTRADICT",
+      "refuted": false,
+      "reason": "The abstract discusses rapamycin\u2011treated PDAPP mice and reports decreased LC3\u2011II and p62 levels, but it makes no mention of Atg7, Atg5\u2011Atg12 or any increase in "
+    },
+    {
+      "gold": "CONTRADICT",
+      "refuted": false,
+      "reason": "The abstract reports that rapamycin treatment decreases LC3\u2011II levels and p62, which contradicts the manuscript claim that the treatment induces autophagy marke"
+    },
+    {
+      "gold": "CONTRADICT",
+      "refuted": false,
+      "reason": "The abstract reports that rapamycin\u2011treated PDAPP mice have decreased LC3\u2011II levels and does not mention increased expression of Atg7, Atg5\u2011Atg12 or other autop"
+    },
+    {
+      "gold": "CONTRADICT",
+      "refuted": true,
+      "reason": "The abstract reports that rapamycin treatment leads to decreased LC3\u2011II levels and decreased p62, with no mention of increased Atg7 or Atg5\u2011Atg12 expression. Th"
+    }
+  ],
+  "headline": "NO FULL-CONTEXT MEASUREMENT EXISTS. All three runs were quote-only: the abstract lookup failed silently twice (checkpoint keys are marker-stripped and further normalized; prefix matching against the raw corpus returned null on all 20 rows both times, falling back to the quote). What the three runs DO establish: the gate killed 4/17, 8/17 and 10/17 true positives and at most 1/3 false ones, never raising precision. Runs 2 and 3 sent BYTE-IDENTICAL prompts and killed 8 vs 10 \u2014 the provider is not deterministic at temperature 0, which independently undermines a gate whose verdict flips run to run.",
+  "three_run_series": {
+    "run1": {
+      "tp_killed": "4/17",
+      "fp_killed": "0/3",
+      "note": "paraphrased prompt \u2014 measured a different gate"
+    },
+    "run2": {
+      "tp_killed": "8/17",
+      "fp_killed": "1/3",
+      "note": "verbatim prompt, quote-only (lookup silently null on 20/20)"
+    },
+    "run3": {
+      "tp_killed": "10/17",
+      "fp_killed": "0/3",
+      "note": "identical prompts to run2 after a failed lookup fix \u2014 8 vs 10 on the same bytes is provider nondeterminism"
+    }
+  },
+  "correction": "Commit 595130e cited run 2 as full-context; that was wrong, caught by the 2026-08-22 accuracy review and by full_abstract:false on every row. The removal decision SURVIVES: every measurement at every attempted context level kills mostly true positives, and the verdict is not even stable across identical inputs. A faithful full-abstract run remains OPEN and needs the lookup keyed by the fired row's evidence doc_id, not by claim-prefix matching."
+}

@@ -1,0 +1,23 @@
+{
+  "generated_by": "manual live probe, 2026-08-22 (scripts/\u2026 not committed; 8 arXiv ids)",
+  "question": "Does arxiv.org/html actually yield a usable body, and what does top-5 selection cost?",
+  "model_calls": 0,
+  "coverage": {
+    "attempted": 8,
+    "usable": 7,
+    "rate": 0.88,
+    "plan_bound_for_cs_LG": "70% [65-74]",
+    "caveat": "n=8. A point estimate on eight papers is not a coverage figure; it is a sanity check that the path works at all."
+  },
+  "refused": {
+    "id": "1412.6980",
+    "why": "TRAP 1 fired on exactly the paper the plan named for it: arxiv.org/html/1412.6980 answers HTTP 200 with a short conversion-error page. Abstaining on status code would have read that page as the paper and concluded the source says nothing."
+  },
+  "selection_cost_tokens": {
+    "min": 68,
+    "max": 161,
+    "note": "Top-5 selection is far cheaper than the plan's 1,016-token estimate because only sentences scoring above zero are kept. The abstract path it replaces was estimated at 1,125."
+  },
+  "bug_found_and_fixed": "The first version cut the body at the FIRST block matching references/acknowledgements. On arXiv that is site chrome at block 40 of 441, leaving 3 sentences and 19 words, so every paper was refused and coverage measured 0/8. This is the SECOND time this pipeline has cut a document at the first false bibliography heading \u2014 the other silenced D4 over 99.5% of a paper on 2026-08-21. The cut is now the last qualifying heading past the halfway point.",
+  "not_measured": "Whether full-text evidence changes D1's VERDICTS. That needs model calls against labelled data and has not been run, which is why REVIEW_FULLTEXT_ENABLED defaults to off."
+}

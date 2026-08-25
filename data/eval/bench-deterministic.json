@@ -1,0 +1,204 @@
+{
+  "generated": "bench-deterministic.mjs",
+  "corpora": [
+    {
+      "id": "scifact",
+      "documents": 5183,
+      "words": 1112417,
+      "glossary_findings": 22,
+      "glossary_per_1k_words": 0.02,
+      "overclaim_candidates": 6015,
+      "overclaim_candidates_per_doc": 1.161,
+      "contradiction_candidates": 25,
+      "contradiction_candidates_per_doc": 0.005,
+      "glossary_samples": [
+        {
+          "doc": 583260,
+          "wrote": "operating characteristic curve",
+          "suggested": "Receiver Operating Characteristic (ROC) Curve",
+          "similarity": 0.75
+        },
+        {
+          "doc": 1780819,
+          "wrote": "area under the curve",
+          "suggested": "Area under the ROC Curve (AUC)",
+          "similarity": 0.75
+        },
+        {
+          "doc": 3034412,
+          "wrote": "area under the curve",
+          "suggested": "Area under the ROC Curve (AUC)",
+          "similarity": 0.75
+        },
+        {
+          "doc": 3202143,
+          "wrote": "long-term associative memory",
+          "suggested": "Long-Term Memory",
+          "similarity": 0.75
+        },
+        {
+          "doc": 3662132,
+          "wrote": "open source SAMtools software",
+          "suggested": "Open-Source Software (OSS)",
+          "similarity": 0.75
+        },
+        {
+          "doc": 3790895,
+          "wrote": "area under the curve",
+          "suggested": "Area under the ROC Curve (AUC)",
+          "similarity": 0.75
+        },
+        {
+          "doc": 3878434,
+          "wrote": "receiver operating curve",
+          "suggested": "Receiver Operating Characteristic (ROC) Curve",
+          "similarity": 0.75
+        },
+        {
+          "doc": 11250124,
+          "wrote": "long-term spatial memory",
+          "suggested": "Long-Term Memory",
+          "similarity": 0.75
+        },
+        {
+          "doc": 12030735,
+          "wrote": "Receiver operating characteristic",
+          "suggested": "Receiver Operating Characteristic (ROC) Curve",
+          "similarity": 0.75
+        },
+        {
+          "doc": 12409683,
+          "wrote": "area under the curve",
+          "suggested": "Area under the ROC Curve (AUC)",
+          "similarity": 0.75
+        },
+        {
+          "doc": 13955536,
+          "wrote": "long-term epigenetic memory",
+          "suggested": "Long-Term Memory",
+          "similarity": 0.75
+        },
+        {
+          "doc": 14664424,
+          "wrote": "area under the curve",
+          "suggested": "Area under the ROC Curve (AUC)",
+          "similarity": 0.75
+        }
+      ]
+    },
+    {
+      "id": "citation-integrity",
+      "documents": 8515,
+      "words": 686353,
+      "glossary_findings": 8,
+      "glossary_per_1k_words": 0.012,
+      "overclaim_candidates": 2826,
+      "overclaim_candidates_per_doc": 0.332,
+      "contradiction_candidates": 49,
+      "contradiction_candidates_per_doc": 0.006,
+      "glossary_samples": [
+        {
+          "doc": 53024,
+          "wrote": "area under the curve",
+          "suggested": "Area under the ROC Curve (AUC)",
+          "similarity": 0.75
+        },
+        {
+          "doc": 17161,
+          "wrote": "weighted least-squares",
+          "suggested": "Weighted Alternating Least Squares (WALS)",
+          "similarity": 0.75
+        },
+        {
+          "doc": 17193,
+          "wrote": "weighted least- squares",
+          "suggested": "Weighted Alternating Least Squares (WALS)",
+          "similarity": 0.75
+        },
+        {
+          "doc": 16013,
+          "wrote": "area under the curve",
+          "suggested": "Area under the ROC Curve (AUC)",
+          "similarity": 0.75
+        },
+        {
+          "doc": 31029,
+          "wrote": "area under the curve",
+          "suggested": "Area under the ROC Curve (AUC)",
+          "similarity": 0.75
+        },
+        {
+          "doc": 31100,
+          "wrote": "area under the curve",
+          "suggested": "Area under the ROC Curve (AUC)",
+          "similarity": 0.75
+        },
+        {
+          "doc": 41008,
+          "wrote": "receiver operating curve",
+          "suggested": "Receiver Operating Characteristic (ROC) Curve",
+          "similarity": 0.75
+        },
+        {
+          "doc": 10016,
+          "wrote": "area under the curve",
+          "suggested": "Area under the ROC Curve (AUC)",
+          "similarity": 0.75
+        }
+      ]
+    }
+  ],
+  "grounding_filter": {
+    "tested": 493,
+    "verbatim_accepted": 493,
+    "fabricated_rejected": 493
+  },
+  "d4_candidate_recall": {
+    "ACCURATE": {
+      "n": 1861,
+      "surfaced": 237,
+      "rate": 0.127
+    },
+    "NOT_SUBSTANTIATE": {
+      "n": 243,
+      "surfaced": 39,
+      "rate": 0.16
+    },
+    "OVERSIMPLIFY": {
+      "n": 111,
+      "surfaced": 51,
+      "rate": 0.459
+    },
+    "CONTRADICT": {
+      "n": 92,
+      "surfaced": 16,
+      "rate": 0.174
+    },
+    "INDIRECT": {
+      "n": 48,
+      "surfaced": 12,
+      "rate": 0.25
+    },
+    "MISQUOTE": {
+      "n": 38,
+      "surfaced": 3,
+      "rate": 0.079
+    },
+    "INDIRECT_NOT_REVIEW": {
+      "n": 34,
+      "surfaced": 4,
+      "rate": 0.118
+    },
+    "ETIQUETTE": {
+      "n": 10,
+      "surfaced": 0,
+      "rate": 0
+    },
+    "IRRELEVANT": {
+      "n": 2,
+      "surfaced": 0,
+      "rate": 0
+    }
+  },
+  "caveat": "SciFact and Citation-Integrity are BIOMEDICAL corpora; the glossary is AI terminology, so a low glossary false-positive rate here is partly domain mismatch rather than matcher precision. The D4 and D2 candidate rates do not have this problem - their vocabularies are domain-general. Glossary findings listed above are UNADJUDICATED: an agent must not grade them (data/eval/README.md)."
+}

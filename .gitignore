@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.tsbuildinfo
+data/history/
+data/benchmarks/
+*.partial.jsonl
+.env
+.DS_Store

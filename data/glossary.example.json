@@ -1,0 +1,266 @@
+[
+  {
+    "slug": "kernel-support-vector-machine-ksvm",
+    "en": {
+      "term": "Kernel Support Vector Machine (KSVM)",
+      "slug": "kernel-support-vector-machine-ksvm",
+      "definition": "A support vector machine using a kernel function to separate classes in a transformed feature space."
+    }
+  },
+  {
+    "slug": "artificial-intelligence-ai",
+    "en": {
+      "term": "Artificial Intelligence (AI)",
+      "slug": "artificial-intelligence-ai",
+      "definition": "Computer systems that perform tasks associated with intelligent behaviour, such as reasoning, learning, and perception."
+    }
+  },
+  {
+    "slug": "machine-learning-ml",
+    "en": {
+      "term": "Machine Learning (ML)",
+      "slug": "machine-learning-ml",
+      "definition": "Algorithms whose performance on a task improves with data rather than through explicit programming."
+    }
+  },
+  {
+    "slug": "deep-learning",
+    "en": {
+      "term": "Deep Learning",
+      "slug": "deep-learning",
+      "definition": "Machine learning built on multi-layer neural networks trained end to end."
+    }
+  },
+  {
+    "slug": "neural-network",
+    "en": {
+      "term": "Neural Network",
+      "slug": "neural-network",
+      "definition": "A parameterised function composed of layered units whose weights are learned from data."
+    }
+  },
+  {
+    "slug": "large-language-model-llm",
+    "en": {
+      "term": "Large Language Model (LLM)",
+      "slug": "large-language-model-llm",
+      "definition": "A neural network trained on large text corpora to predict and generate language."
+    }
+  },
+  {
+    "slug": "natural-language-processing-nlp",
+    "en": {
+      "term": "Natural Language Processing (NLP)",
+      "slug": "natural-language-processing-nlp",
+      "definition": "Computational methods for analysing and generating human language."
+    }
+  },
+  {
+    "slug": "computer-vision",
+    "en": {
+      "term": "Computer Vision",
+      "slug": "computer-vision",
+      "definition": "Computational methods for deriving information from images and video."
+    }
+  },
+  {
+    "slug": "reinforcement-learning-rl",
+    "en": {
+      "term": "Reinforcement Learning (RL)",
+      "slug": "reinforcement-learning-rl",
+      "definition": "Learning a policy of actions by maximising cumulative reward from interaction with an environment."
+    }
+  },
+  {
+    "slug": "supervised-learning",
+    "en": {
+      "term": "Supervised Learning",
+      "slug": "supervised-learning",
+      "definition": "Learning a mapping from inputs to outputs using labelled examples."
+    }
+  },
+  {
+    "slug": "unsupervised-learning",
+    "en": {
+      "term": "Unsupervised Learning",
+      "slug": "unsupervised-learning",
+      "definition": "Learning structure from data without labelled outputs."
+    }
+  },
+  {
+    "slug": "transfer-learning",
+    "en": {
+      "term": "Transfer Learning",
+      "slug": "transfer-learning",
+      "definition": "Reusing a model trained on one task as the starting point for another."
+    }
+  },
+  {
+    "slug": "federated-learning",
+    "en": {
+      "term": "Federated Learning",
+      "slug": "federated-learning",
+      "definition": "Training a shared model across devices or sites without centralising the raw data."
+    }
+  },
+  {
+    "slug": "support-vector-machine-svm",
+    "en": {
+      "term": "Support Vector Machine (SVM)",
+      "slug": "support-vector-machine-svm",
+      "definition": "A classifier that separates classes with the maximum-margin hyperplane, optionally in a kernel-induced feature space."
+    }
+  },
+  {
+    "slug": "random-forest",
+    "en": {
+      "term": "Random Forest",
+      "slug": "random-forest",
+      "definition": "An ensemble of decision trees whose predictions are aggregated to reduce variance."
+    }
+  },
+  {
+    "slug": "gradient-descent",
+    "en": {
+      "term": "Gradient Descent",
+      "slug": "gradient-descent",
+      "definition": "Iterative optimisation that updates parameters in the direction that reduces a loss function."
+    }
+  },
+  {
+    "slug": "backpropagation",
+    "en": {
+      "term": "Backpropagation",
+      "slug": "backpropagation",
+      "definition": "Computing loss gradients through a network by the chain rule, layer by layer."
+    }
+  },
+  {
+    "slug": "convolutional-neural-network-cnn",
+    "en": {
+      "term": "Convolutional Neural Network (CNN)",
+      "slug": "convolutional-neural-network-cnn",
+      "definition": "A neural network using convolutional filters, suited to grid-structured data such as images."
+    }
+  },
+  {
+    "slug": "recurrent-neural-network-rnn",
+    "en": {
+      "term": "Recurrent Neural Network (RNN)",
+      "slug": "recurrent-neural-network-rnn",
+      "definition": "A neural network with feedback connections for processing sequences."
+    }
+  },
+  {
+    "slug": "transformer-architecture",
+    "en": {
+      "term": "Transformer Architecture",
+      "slug": "transformer-architecture",
+      "definition": "A sequence model built on attention rather than recurrence."
+    }
+  },
+  {
+    "slug": "attention-mechanism",
+    "en": {
+      "term": "Attention Mechanism",
+      "slug": "attention-mechanism",
+      "definition": "A learned weighting that lets a model focus on relevant parts of its input."
+    }
+  },
+  {
+    "slug": "generative-adversarial-network-gan",
+    "en": {
+      "term": "Generative Adversarial Network (GAN)",
+      "slug": "generative-adversarial-network-gan",
+      "definition": "Two networks trained in opposition: a generator producing samples and a discriminator judging them."
+    }
+  },
+  {
+    "slug": "retrieval-augmented-generation-rag",
+    "en": {
+      "term": "Retrieval-Augmented Generation (RAG)",
+      "slug": "retrieval-augmented-generation-rag",
+      "definition": "Generation conditioned on documents retrieved at query time rather than on parameters alone."
+    }
+  },
+  {
+    "slug": "prompt-engineering",
+    "en": {
+      "term": "Prompt Engineering",
+      "slug": "prompt-engineering",
+      "definition": "Designing model inputs to elicit desired behaviour without changing weights."
+    }
+  },
+  {
+    "slug": "fine-tuning",
+    "en": {
+      "term": "Fine-Tuning",
+      "slug": "fine-tuning",
+      "definition": "Continuing training of a pre-trained model on task-specific data."
+    }
+  },
+  {
+    "slug": "overfitting",
+    "en": {
+      "term": "Overfitting",
+      "slug": "overfitting",
+      "definition": "Fitting training data so closely that performance on unseen data degrades."
+    }
+  },
+  {
+    "slug": "regularisation",
+    "en": {
+      "term": "Regularisation",
+      "slug": "regularisation",
+      "definition": "Techniques that constrain a model to improve generalisation."
+    }
+  },
+  {
+    "slug": "cross-validation",
+    "en": {
+      "term": "Cross-Validation",
+      "slug": "cross-validation",
+      "definition": "Estimating generalisation by training and testing on rotating splits of the data."
+    }
+  },
+  {
+    "slug": "explainable-ai-xai",
+    "en": {
+      "term": "Explainable AI (XAI)",
+      "slug": "explainable-ai-xai",
+      "definition": "Methods that make a model's behaviour understandable to people."
+    }
+  },
+  {
+    "slug": "algorithmic-bias",
+    "en": {
+      "term": "Algorithmic Bias",
+      "slug": "algorithmic-bias",
+      "definition": "Systematic, unfair skew in a system's outputs with respect to groups or attributes."
+    }
+  },
+  {
+    "slug": "data-governance",
+    "en": {
+      "term": "Data Governance",
+      "slug": "data-governance",
+      "definition": "The policies and processes controlling how data is collected, stored, used, and shared."
+    }
+  },
+  {
+    "slug": "named-entity-recognition-ner",
+    "en": {
+      "term": "Named-Entity Recognition (NER)",
+      "slug": "named-entity-recognition-ner",
+      "definition": "Identifying and classifying names of people, places, organisations, and similar entities in text."
+    }
+  },
+  {
+    "slug": "knowledge-graph",
+    "en": {
+      "term": "Knowledge Graph",
+      "slug": "knowledge-graph",
+      "definition": "A graph of entities and typed relationships used to represent and query knowledge."
+    }
+  }
+]

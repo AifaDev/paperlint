@@ -1,0 +1,89 @@
+{
+  "generated_by": "scripts/spot-scope.mjs",
+  "source": "amphora/SPOT-MetaData (CC BY 4.0), 91 errors / 83 papers, author-validated",
+  "question": "What fraction of a real published-error corpus can a TEXT-ONLY reviewer address at all?",
+  "answer": {
+    "total_errors": 91,
+    "reachable_certain": 2,
+    "reachable_possible": 5,
+    "reachable_ceiling_pct": 7.7,
+    "out_of_modality_pct": 92.3
+  },
+  "what_this_changes": "The o3 figure (21.1% recall, 6.1% precision) that this project has used as its bar is measured over all 91, including 64 errors in equations and figures. Our ceiling on the same corpus is 7/91. The two numbers are not comparable, and no recall figure against SPOT should be quoted for this pipeline without this ceiling beside it. SPOT also ships no paper text, no DOI and no PDF — title and annotation only — so even the reachable slice needs 83 titles resolved to full texts before anything can be run.",
+  "categories": [
+    {
+      "category": "Equation / proof",
+      "count": 37,
+      "retract": 28,
+      "errata": 9,
+      "reach": "no",
+      "why": "we parse no equations and check no proofs"
+    },
+    {
+      "category": "Figure duplication",
+      "count": 27,
+      "retract": 0,
+      "errata": 27,
+      "reach": "no",
+      "why": "no image analysis anywhere in the pipeline"
+    },
+    {
+      "category": "Data Inconsistency (figure-text)",
+      "count": 9,
+      "retract": 0,
+      "errata": 9,
+      "reach": "no",
+      "why": "requires reading a figure to compare against text"
+    },
+    {
+      "category": "Data inconsistency",
+      "count": 5,
+      "retract": 0,
+      "errata": 5,
+      "reach": "maybe",
+      "why": "unqualified — text-text would be D2, figure-involving would not",
+      "check": "D2"
+    },
+    {
+      "category": "Statistical reporting",
+      "count": 4,
+      "retract": 3,
+      "errata": 1,
+      "reach": "no",
+      "why": "p-value recomputation (statcheck) was measured and deliberately retired: 1.9% of AI papers carry a parseable APA triplet, PPV 57-60%"
+    },
+    {
+      "category": "Reagent identity",
+      "count": 3,
+      "retract": 1,
+      "errata": 2,
+      "reach": "no",
+      "why": "wet-lab domain knowledge, no textual signal we hold"
+    },
+    {
+      "category": "Data Inconsistency (text-text)",
+      "count": 2,
+      "retract": 0,
+      "errata": 2,
+      "reach": "yes",
+      "why": "D2 pairs metrics that disagree across the text",
+      "check": "D2"
+    },
+    {
+      "category": "Experiment setup",
+      "count": 2,
+      "retract": 0,
+      "errata": 2,
+      "reach": "no",
+      "why": "requires domain expertise about the experiment, not a text property"
+    },
+    {
+      "category": "Data Inconsistency (figure-figure)",
+      "count": 2,
+      "retract": 0,
+      "errata": 2,
+      "reach": "no",
+      "why": "requires reading two figures"
+    }
+  ]
+}
