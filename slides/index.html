@@ -74,23 +74,25 @@ svg.pic { stroke: var(--cyan); stroke-width: 3; fill: none; stroke-linecap: roun
 .s1 .pg, .pg { position: absolute; bottom: 42px; right: 96px; font-size: 18px; color: #557499; }
 
 /* === CHECK-CARD GRID ======================================== */
-.head { position: absolute; top: 96px; left: 96px; }
-.head h2 { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 62px; color: #fff; }
+.head { position: absolute; top: 92px; left: 96px; }
+.head h2 { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 56px; color: #fff; }
 .head h2 span { color: var(--cyan); }
-.grid { position: absolute; left: 90px; right: 90px; top: 210px; bottom: 70px; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; gap: 22px; }
+.grid { position: absolute; left: 90px; right: 90px; top: 186px; bottom: 56px; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; gap: 18px; }
 .g3 { grid-template-columns: repeat(2, 1fr); }
-.card { background: var(--panel); border: 1.5px solid var(--line); border-radius: 14px; padding: 20px 22px 16px; display: flex; flex-direction: column; }
-.card .pic { height: 52px; align-self: flex-start; margin-bottom: 10px; }
-.card h3 { margin: 0 0 10px; font-family: var(--serif); font-weight: 600; font-size: 27px; color: #fff; }
-.card .io { font-size: 16.5px; line-height: 1.65; color: var(--dim); }
+.card { background: var(--panel); border: 1.5px solid var(--line); border-radius: 14px; padding: 13px 16px 12px; display: flex; flex-direction: column; }
+.card .pic { height: 34px; align-self: flex-start; margin-bottom: 6px; }
+.card h3 { margin: 0 0 5px; font-family: var(--serif); font-weight: 600; font-size: 24px; color: #fff; }
+.card .what { font-size: 14.5px; line-height: 1.45; color: var(--ink); opacity: .8; margin-bottom: 8px; }
+.card .io { font-size: 14.5px; line-height: 1.55; color: var(--dim); margin-top: auto; padding-top: 7px; border-top: 1px dashed var(--line); }
 .io .in { background: var(--chip); border: 1px solid var(--line); padding: 1px 7px; border-radius: 5px; color: #fff; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .io .a { color: var(--cyan); margin: 0 6px; }
 .io .out { color: var(--green); }
 
 /* slide 3: bigger cards + a numbers rail */
 .s3 .grid { bottom: 250px; }
-.s3 .card h3 { font-size: 31px; }
-.s3 .card .io { font-size: 18px; }
+.s3 .card h3 { font-size: 29px; }
+.s3 .card .io { font-size: 17px; }
+.s3 .card .what { font-size: 17px; }
 .nums { position: absolute; left: 90px; right: 90px; bottom: 68px; display: flex; gap: 22px; }
 .num { flex: 1; border: 1.5px solid var(--line); border-radius: 14px; background: var(--panel); padding: 20px 26px; }
 .num b { display: block; font-family: var(--serif); font-size: 52px; color: #fff; }
@@ -140,31 +142,31 @@ svg.pic { stroke: var(--cyan); stroke-width: 3; fill: none; stroke-linecap: roun
       <div class="head"><h2>12 checks, <span>no AI needed</span></h2></div>
       <div class="grid">
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M12 46 L34 14 L56 46 M21 34 H47"/><path d="M70 24 l8 8 l14 -16"/></svg>
-          <h3>Term check</h3><div class="io"><span class="in">"kernel support machine"</span><span class="a">&rarr;</span><span class="out">&asymp; "Kernel Support Vector Machine"</span></div></div>
+          <h3>Glossary term</h3><div class="what">Flags a phrase that nearly matches a canonical glossary term. Abstains when it could mean two terms.</div><div class="io"><span class="in">"kernel support machine"</span><span class="a">&rarr;</span><span class="out">&asymp; "Kernel Support Vector Machine"</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="14" y="10" width="46" height="40" rx="4"/><path d="M22 22 H52 M22 32 H52 M22 42 H38"/><path d="M72 20 L88 40 M88 20 L72 40"/></svg>
-          <h3>Fake DOI</h3><div class="io"><span class="in">doi:10.9999/not-real</span><span class="a">&rarr;</span><span class="out">unregistered — 3 registries agree</span></div></div>
+          <h3>Fake DOI</h3><div class="what">Resolves every DOI and arXiv id. Only accuses when Crossref, DataCite and doi.org all disown it — a timeout is never an accusation.</div><div class="io"><span class="in">doi:10.9999/not-real</span><span class="a">&rarr;</span><span class="out">unregistered — 3 registries agree</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><circle cx="30" cy="30" r="16"/><path d="M42 42 L58 58" transform="translate(0,-12)"/><path d="M66 16 h20 M66 28 h20 M66 40 h12"/></svg>
-          <h3>Wrong target</h3><div class="io"><span class="in">DOI &ne; the work the prose describes</span><span class="a">&rarr;</span><span class="out">mismatch flagged</span></div></div>
+          <h3>Wrong target</h3><div class="what">If neither title, authors, nor year appears near the citation, the id may point at a different work.</div><div class="io"><span class="in">DOI &ne; the work the prose describes</span><span class="a">&rarr;</span><span class="out">mismatch flagged</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="20" y="8" width="44" height="44" rx="4"/><path d="M14 30 H70" stroke-width="5"/></svg>
-          <h3>Retracted source</h3><div class="io"><span class="in">Wakefield 1998</span><span class="a">&rarr;</span><span class="out">RETRACTED 2010 — notice linked</span></div></div>
+          <h3>Retracted source</h3><div class="what">Reads the retraction notice on the cited work. Corrections and errata are not flagged — an amended paper stands.</div><div class="io"><span class="in">Wakefield 1998</span><span class="a">&rarr;</span><span class="out">RETRACTED 2010 — notice linked</span></div></div>
 
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M14 14 h30 M14 26 h30 M14 38 h30 M14 50 h18"/><path d="M62 22 h24 M62 34 h24" stroke-dasharray="4 6"/></svg>
-          <h3>Cited, not listed</h3><div class="io"><span class="in">prose cites [5]</span><span class="a">&rarr;</span><span class="out">the list has no entry [5]</span></div></div>
+          <h3>Cited, not listed</h3><div class="what">Every bracketed number in the prose needs an entry in the list, or a reader cannot follow it.</div><div class="io"><span class="in">prose cites [5]</span><span class="a">&rarr;</span><span class="out">the list has no entry [5]</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M14 14 h34 M14 26 h34 M14 38 h34"/><circle cx="74" cy="30" r="14"/><path d="M67 30 h14"/></svg>
-          <h3>Never cited</h3><div class="io"><span class="in">[3] sits in the list</span><span class="a">&rarr;</span><span class="out">no sentence ever cites it</span></div></div>
+          <h3>Never cited</h3><div class="what">The reverse: an entry that no sentence ever cites. Editorial, not an error of fact.</div><div class="io"><span class="in">[3] sits in the list</span><span class="a">&rarr;</span><span class="out">no sentence ever cites it</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="12" y="12" width="32" height="36" rx="4"/><rect x="52" y="12" width="32" height="36" rx="4"/><path d="M22 26 h12 M22 34 h12 M62 26 h12 M62 34 h12"/></svg>
-          <h3>Duplicate entry</h3><div class="io"><span class="in">[6] repeats [1]</span><span class="a">&rarr;</span><span class="out">same work listed twice</span></div></div>
+          <h3>Duplicate entry</h3><div class="what">The same number listed twice, or the same work listed under two different numbers.</div><div class="io"><span class="in">[6] repeats [1]</span><span class="a">&rarr;</span><span class="out">same work listed twice</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><circle cx="30" cy="30" r="18"/><path d="M30 18 V30 L40 36"/><path d="M60 30 h26" stroke-dasharray="4 6"/></svg>
-          <h3>Missing year</h3><div class="io"><span class="in">an undated entry</span><span class="a">&rarr;</span><span class="out">flagged ("in press" is fine)</span></div></div>
+          <h3>Missing year</h3><div class="what">A reference with no year of publication. “In press”, “n.d.” and bare URLs are exempt.</div><div class="io"><span class="in">an undated entry</span><span class="a">&rarr;</span><span class="out">flagged ("in press" is fine)</span></div></div>
 
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="12" y="10" width="40" height="30" rx="3"/><path d="M18 34 L30 20 L40 30 L46 24"/><path d="M64 44 h22" stroke-dasharray="4 6"/></svg>
-          <h3>Orphan figure</h3><div class="io"><span class="in">Figure 1 has a caption</span><span class="a">&rarr;</span><span class="out">the text never points at it</span></div></div>
+          <h3>Orphan figure</h3><div class="what">A figure or table has a caption but no sentence ever points a reader at it.</div><div class="io"><span class="in">Figure 1 has a caption</span><span class="a">&rarr;</span><span class="out">the text never points at it</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M14 20 h40 M14 32 h40 M14 44 h28"/><rect x="64" y="14" width="24" height="20" rx="3" stroke-dasharray="4 6"/></svg>
-          <h3>Ghost figure</h3><div class="io"><span class="in">"see Figure 2"</span><span class="a">&rarr;</span><span class="out">no Figure 2 exists</span></div></div>
+          <h3>Ghost figure</h3><div class="what">The prose points at a figure or table that has no caption anywhere in the document.</div><div class="io"><span class="in">"see Figure 2"</span><span class="a">&rarr;</span><span class="out">no Figure 2 exists</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="12" y="8" width="34" height="22" rx="3"/><path d="M20 19 h18"/><rect x="12" y="36" width="76" height="16" rx="3"/><path d="M20 44 h60"/></svg>
-          <h3>Summary drift</h3><div class="io"><span class="in">abstract says "45%"</span><span class="a">&rarr;</span><span class="out">the body never states it</span></div></div>
+          <h3>Summary drift</h3><div class="what">A percentage asserted in the abstract that the body never states. Rounding is fine.</div><div class="io"><span class="in">abstract says "45%"</span><span class="a">&rarr;</span><span class="out">the body never states it</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><circle cx="34" cy="30" r="20"/><path d="M16 30 h36 M34 12 c8 10 8 26 0 36 M34 12 c-8 10 -8 26 0 36"/><path d="M68 40 l8 8 l14 -16"/></svg>
-          <h3>Language gate</h3><div class="io"><span class="in">non-English draft</span><span class="a">&rarr;</span><span class="out">skipped honestly, never misjudged</span></div></div>
+          <h3>Language gate</h3><div class="what">Language is detected from the text. A non-English draft is skipped with a reason, never misjudged.</div><div class="io"><span class="in">non-English draft</span><span class="a">&rarr;</span><span class="out">skipped honestly, never misjudged</span></div></div>
       </div>
       <div class="pg">2 / 3</div>
     </section>
@@ -175,13 +177,13 @@ svg.pic { stroke: var(--cyan); stroke-width: 3; fill: none; stroke-linecap: roun
       <div class="head"><h2>4 judgements, <span>quote-verified</span></h2></div>
       <div class="grid g3">
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="10" y="12" width="34" height="38" rx="4"/><rect x="56" y="12" width="34" height="38" rx="4"/><path d="M44 30 h12 M50 24 v12" stroke-width="2.5"/></svg>
-          <h3>Does the source say that?</h3><div class="io"><span class="in">"their survey achieved 95% accuracy"</span><span class="a">vs</span><span class="in">abstract: "we do not report accuracy"</span><span class="a">&rarr;</span><span class="out">unsupported — both quotes verified verbatim first</span></div></div>
+          <h3>Does the source say that?</h3><div class="what">Reads the cited work’s abstract (or full text) and rules whether it supports the claim. Four verdicts, three of them silent.</div><div class="io"><span class="in">"their survey achieved 95% accuracy"</span><span class="a">vs</span><span class="in">abstract: "we do not report accuracy"</span><span class="a">&rarr;</span><span class="out">unsupported — both quotes verified verbatim first</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M14 44 L40 16 M40 44 L14 16"/><path d="M60 30 h28"/><path d="M60 20 h28 M60 40 h28" stroke-dasharray="3 5"/></svg>
-          <h3>Self-contradiction</h3><div class="io"><span class="in">"91.4% accuracy"</span><span class="a">&hellip;</span><span class="in">"99.2% accuracy"</span><span class="a">&rarr;</span><span class="out">same metric, two values</span></div></div>
+          <h3>Self-contradiction</h3><div class="what">Deterministic code pairs numbers reported for the same metric; the model rules whether they are really one quantity.</div><div class="io"><span class="in">"91.4% accuracy"</span><span class="a">&hellip;</span><span class="in">"99.2% accuracy"</span><span class="a">&rarr;</span><span class="out">same metric, two values</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M20 50 V22 M36 50 V12 M52 50 V30"/><path d="M68 50 V36" stroke-dasharray="4 5"/><path d="M12 50 H92"/></svg>
-          <h3>Missing baseline</h3><div class="io"><span class="in">"a 12-point improvement"</span><span class="a">+</span><span class="in">no baseline in Methods</span><span class="a">&rarr;</span><span class="out">gap anchored to that exact claim</span></div></div>
+          <h3>Missing baseline</h3><div class="what">Checks methods and results against a fixed rubric, reporting only gaps a stated claim depends on.</div><div class="io"><span class="in">"a 12-point improvement"</span><span class="a">+</span><span class="in">no baseline in Methods</span><span class="a">&rarr;</span><span class="out">gap anchored to that exact claim</span></div></div>
         <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M50 10 L50 34" stroke-width="4"/><circle cx="50" cy="46" r="3" fill="#57c4ff"/><path d="M28 52 a24 24 0 0 1 44 0" stroke-dasharray="4 5"/></svg>
-          <h3>Overclaiming</h3><div class="io"><span class="in">"one trial proves it eliminates hallucination"</span><span class="a">&rarr;</span><span class="out">one trial cannot carry that claim</span></div></div>
+          <h3>Overclaiming</h3><div class="what">A lexicon finds strong claims; the model weighs whether the surrounding evidence can carry them.</div><div class="io"><span class="in">"one trial proves it eliminates hallucination"</span><span class="a">&rarr;</span><span class="out">one trial cannot carry that claim</span></div></div>
       </div>
       <div class="nums">
         <div class="num reveal"><b>150/150</b><span>retracted papers caught, zero false alarms <i>bench-retraction.json</i></span></div>

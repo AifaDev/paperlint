@@ -1,7 +1,7 @@
 import type { ExtractedContent } from "./extract";
 import type { CitationIdentifier } from "./citations";
 
-// Chunking for Stage D (plan §Chunking). Pure: text in, chunks out.
+// Chunking for the model layer. Pure: text in, chunks out.
 //
 // WHY CHUNK AT ALL when a 9,646-word paper (~13k tokens) fits inside a 131k
 // context window: because handing a model the whole document and asking what

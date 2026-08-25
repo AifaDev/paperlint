@@ -38,10 +38,10 @@ import {
   type ClaimSourceStats,
 } from "./claim-source";
 
-// The pipeline orchestrator (plan §Pipeline). Pure composition: every
+// The pipeline orchestrator. Pure composition: every
 // dependency that touches the world (glossary rows, the citation cache, the
 // network clock) is injected, so the same function runs under node --test,
-// in the dry-run script, and inside the cron drain — and the tests exercise
+// in the dry-run script, and inside a host application — and the tests exercise
 // exactly what production executes.
 //
 // ADVISORY BY CONSTRUCTION: the result is data. Nothing in this module (or
@@ -188,7 +188,7 @@ function glossaryToPipelineFinding(finding: GlossaryFinding): PipelineFinding {
 }
 
 /**
- * Consistency v1 (plan §C): percentages asserted in the summary that the
+ * Summary consistency: percentages asserted in the summary that the
  * body never states. Deliberately ONLY percentages — the one numeric claim
  * class where "the body doesn't mention it" is checkable without judgement.
  * The LLM pass stays deferred until A/B have production numbers.
@@ -370,7 +370,7 @@ export async function runReviewPipeline(input: PipelineInput, deps: PipelineDeps
     budget = new ModelBudget();
     const statements = citationStatements(extracted, identifiers);
     const documentText = flowText(extracted.text);
-    // M-E4. OFF by default: the plan enables checks one at a time on measured
+    // OFF by default: checks are enabled one at a time on measured
     // precision, and this changes what D1 is shown. The BM25 selector itself is
     // gated and passed (Recall@5 0.551 at full-paper scale vs a 0.29 kill
     // line), but its effect on D1's verdicts has not been measured yet.

@@ -8,6 +8,8 @@ import { describe, test } from "node:test";
 
 import {
   BUDGET,
+  DEFAULT_BASE_URL,
+  resolveBaseUrl,
   TokenBucket,
   __resetDailyLimit,
   __resetBucketForTest,
@@ -539,5 +541,51 @@ describe("accounting — one record() per HTTP request, whatever the outcome", (
     assert.ok(result.ok);
     assert.equal(budget.usage.calls, 2, "the same two requests must cost the same whether they succeed or not");
     assert.equal(budget.usage.input_tokens, 7, "and the answered one still reports its real token usage");
+  });
+});
+
+describe("provider-agnostic endpoint", () => {
+  // Any OpenAI-compatible /chat/completions endpoint works. The endpoint is
+  // OPERATOR-chosen (env var, or a field in a localhost-only UI) and never
+  // derived from the document under review — that is what keeps the SSRF
+  // invariant intact while allowing a user to bring any provider.
+  test("resolveBaseUrl accepts an origin, a /v1 base, or the full path", () => {
+    assert.equal(resolveBaseUrl("https://api.openai.com/v1"), "https://api.openai.com/v1/chat/completions");
+    assert.equal(resolveBaseUrl("https://api.openai.com"), "https://api.openai.com/v1/chat/completions");
+    assert.equal(
+      resolveBaseUrl("https://openrouter.ai/api/v1/chat/completions"),
+      "https://openrouter.ai/api/v1/chat/completions",
+    );
+    assert.equal(resolveBaseUrl("http://localhost:11434/v1"), "http://localhost:11434/v1/chat/completions");
+  });
+
+  test("a malformed or non-http endpoint FAILS CLOSED to the default", () => {
+    // Never turn a hostile or broken value into a request somewhere unexpected.
+    for (const bad of ["", "   ", "not a url", "file:///etc/passwd", "javascript:alert(1)", "ftp://x/y"]) {
+      assert.equal(resolveBaseUrl(bad), `${DEFAULT_BASE_URL}/chat/completions`, JSON.stringify(bad));
+    }
+  });
+
+  test("the request actually goes to the chosen provider", async () => {
+    let seen = "";
+    const fetchImpl = async (url) => {
+      seen = String(url);
+      return reply({ verdict: "ok" }, { prompt_tokens: 1, completion_tokens: 1 });
+    };
+    await callModel(request(), new ModelBudget(), {
+      fetchImpl,
+      apiKey: "test_key",
+      baseUrl: "https://api.deepseek.com/v1",
+    });
+    assert.equal(seen, "https://api.deepseek.com/v1/chat/completions");
+  });
+
+  test("no baseUrl keeps the default provider", async () => {
+    let seen = "";
+    await callModel(request(), new ModelBudget(), {
+      fetchImpl: async (url) => { seen = String(url); return reply({ verdict: "ok" }, {}); },
+      apiKey: "test_key",
+    });
+    assert.ok(seen.startsWith(DEFAULT_BASE_URL), seen);
   });
 });

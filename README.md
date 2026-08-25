@@ -22,10 +22,19 @@ npm run web        # builds, then serves http://localhost:4173
 
 Paste text, or upload a `.pdf` / `.docx` (extracted text fills the editor so you
 can see and trim exactly what will be reviewed). The deterministic layers need
-no key and no configuration. To activate the model layers (D1–D4), paste a
-[Groq API key](https://console.groq.com/keys) into the key panel — it stays in
-your browser's localStorage, is sent only to your local server per run, and is
-never stored on disk, logged, or written into history.
+no key and no configuration. To activate the four AI checks, pick a provider
+and paste an API key into the key panel — it stays in your browser's
+localStorage, is sent only to your local server per run, and is never stored on
+disk, logged, or written into history.
+
+**Any OpenAI-compatible provider works**: Groq (default), OpenAI, OpenRouter,
+Together, DeepSeek, Mistral, xAI, or a local server such as Ollama or LM Studio
+via `Custom…`. Set the model name in the same panel, or headlessly with
+`REVIEW_AI_KEY`, `REVIEW_AI_BASE_URL` and `REVIEW_AI_MODEL`. The endpoint is
+always operator-chosen and never derived from the document under review, and a
+malformed endpoint fails closed to the default rather than becoming a request.
+(The provider must support JSON-schema structured output. Anthropic's API shape
+is not OpenAI-compatible and is not supported here.)
 
 ## The layers
 
@@ -36,10 +45,10 @@ never stored on disk, logged, or written into history.
 | Retraction check | a cited work that was retracted/withdrawn — read from the same Crossref payload, zero extra requests | network |
 | Reference & float integrity | cited-but-not-listed, listed-but-never-cited, duplicates, missing years; figures/tables captioned but never referenced, or referenced but missing — abstains unless the style is really in use | nothing |
 | Summary consistency | percentages asserted in the summary that the body never states | nothing |
-| D1 claim vs source | does the cited work's abstract (optionally full text via BM25 selection) support the claim attached to it? Four verdicts, three silent | Groq key |
-| D2 contradiction | the same metric reported with conflicting values | Groq key |
-| D3 methodology | missing baseline/ablation/limitations, each anchored to a quoted dependent claim | Groq key |
-| D4 overclaiming | "proves/always/eliminates" claims the surrounding evidence does not carry | Groq key |
+| Does the source say that? | does the cited work's abstract (optionally full text via BM25 selection) support the claim attached to it? Four verdicts, three silent | an API key |
+| Self-contradiction | the same metric reported with conflicting values | an API key |
+| Missing baseline | missing baseline/ablation/limitations, each anchored to a quoted dependent claim | an API key |
+| Overclaiming | "proves/always/eliminates" claims the surrounding evidence does not carry | an API key |
 
 Every failure is silence plus a recorded reason, never a fake success: rate
 limits mark the run `partial` and list what was dropped; an unresolvable DOI is
@@ -75,7 +84,7 @@ const result = await runReviewPipeline(
     citationStore,               // { get, set } — cache DOI resolutions
     resolveOptions: { mailto: "you@example.org" },   // Crossref polite pool
     modelEnabled: true,          // off by default
-    modelOptions: { apiKey: process.env.GROQ_API_KEY },
+    modelOptions: { apiKey: process.env.REVIEW_AI_KEY, baseUrl: "https://api.openai.com/v1" },
   },
 );
 ```
@@ -91,7 +100,7 @@ suite runs offline.
   from the UI or with `rm -r data/history`.
 - Outbound traffic is exactly: DOI/arXiv/OpenAlex lookups (identifier-only,
   hardcoded hosts — author-supplied URLs are never fetched) and, with a key,
-  Groq API calls carrying the text being reviewed.
+  API calls to the provider you chose, carrying the text being reviewed.
 
 ## Contributing
 

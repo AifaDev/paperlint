@@ -1,7 +1,7 @@
 import { foldText, normalizeTokens, stripMarkup } from "./normalize";
 import type { ExtractedContent } from "./extract";
 
-// Citation checks (plan §B) — deterministic, identifier-only.
+// Citation checks — deterministic, identifier-only.
 //
 // SECURITY INVARIANT, stated where the code lives: this module resolves
 // identifiers against TWO HARDCODED HOSTS and never fetches an

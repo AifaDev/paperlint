@@ -40,7 +40,7 @@
     },
     {
       "stratum": "|doc| > 10",
-      "note": "closest to the full-text case M-E4 is about",
+      "note": "closest to the real full-text case",
       "n": 320,
       "recall_at_5": {
         "bm25": 0.6197,
@@ -93,10 +93,10 @@
   },
   "verdict": {
     "threshold": 0.29,
-    "threshold_source": "PHASE 3 / M-E4: 'Run the BM25 selector against them and compute Recall@5. If it lands materially below 0.29, the cited gain never described this system and the direction dies at zero cost.'",
+    "threshold_source": "The pre-registered kill line: 'Run the BM25 selector against them and compute Recall@5. If it lands materially below 0.29, the cited gain never described this system and the direction dies at zero cost.'",
     "binding_stratum_recall": 0.6197,
     "passes_threshold": true,
     "beats_baselines": true,
-    "caveat": "This is an UPPER BOUND on the full-text case, not an estimate of it. Citation-Integrity's cited documents are ABSTRACTS — a few sentences — while M-E4 would select from a full paper of hundreds. Finding the evidence among 11-41 candidates is strictly easier than finding it among 300. A pass here is necessary, not sufficient; a failure here is decisive."
+    "caveat": "This is an UPPER BOUND on the full-text case, not an estimate of it. Citation-Integrity's cited documents are ABSTRACTS — a few sentences — while full-text retrieval would select from a full paper of hundreds. Finding the evidence among 11-41 candidates is strictly easier than finding it among 300. A pass here is necessary, not sufficient; a failure here is decisive."
   }
 }

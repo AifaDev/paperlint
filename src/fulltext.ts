@@ -1,4 +1,4 @@
-// M-E4 — full text as D1's evidence, selected by BM25.
+// Full text as the claim-vs-source layer's evidence, selected by BM25.
 //
 // WHY, AND WHAT GATED IT. D1 today sees only the cited work's ABSTRACT, which
 // omits nearly everything the paper establishes, so "the abstract is silent"
@@ -17,12 +17,12 @@
 //   150                0.602      0.027
 //   300                0.551      0.010
 //
-// 0.551 at full-paper scale against the plan's 0.29 kill line, and the gain
+// 0.551 at full-paper scale against the pre-registered 0.29 kill line, and the gain
 // over baseline GROWS with document length. No reranker: a MiniLM cross-encoder
 // beats BM25 by 0.0023 nDCG@10 on SciFact while losing 16.1 on the long-query
 // BEIR set most like a citing sentence.
 //
-// TWO TRAPS, both from the plan and both enforced below rather than hoped for.
+// TWO TRAPS, both known in advance and both enforced below rather than hoped for.
 
 export const ARXIV_HTML_HOST = "https://arxiv.org";
 

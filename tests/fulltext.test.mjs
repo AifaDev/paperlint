@@ -8,7 +8,7 @@ import {
   selectEvidence,
 } from "../dist/fulltext.js";
 
-// M-E4. The selector was gated before any of this existed, against
+// The selector was gated before any of this existed, against
 // Citation-Integrity's gold evidence sentences: BM25 Recall@5 0.551 at
 // full-paper scale (300 candidates) against a 0.29 kill line, and 0.010 for a
 // lead-5 baseline. What these tests defend is the two TRAPS, because both turn

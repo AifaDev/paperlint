@@ -43,14 +43,31 @@
     <input id="brief" type="text" placeholder="e.g. Adoption could reach 45% by 2030.">
 
     <details id="key-panel">
-      <summary>Model layers (D1–D4) — API key</summary>
+      <summary>AI checks — provider &amp; API key</summary>
       <div class="key-row">
-        <input id="key" type="password" placeholder="Groq API key (stored in this browser only)">
+        <select id="provider">
+          <option value="https://api.groq.com/openai/v1">Groq</option>
+          <option value="https://api.openai.com/v1">OpenAI</option>
+          <option value="https://openrouter.ai/api/v1">OpenRouter</option>
+          <option value="https://api.together.xyz/v1">Together</option>
+          <option value="https://api.deepseek.com/v1">DeepSeek</option>
+          <option value="https://api.mistral.ai/v1">Mistral</option>
+          <option value="https://api.x.ai/v1">xAI</option>
+          <option value="http://localhost:11434/v1">Ollama (local)</option>
+          <option value="custom">Custom…</option>
+        </select>
+        <input id="model" type="text" placeholder="model name (blank = provider default)">
+      </div>
+      <div class="key-row" id="custom-row" hidden>
+        <input id="base-url" type="text" placeholder="https://your-endpoint/v1  — any OpenAI-compatible API">
+      </div>
+      <div class="key-row">
+        <input id="key" type="password" placeholder="API key (stored in this browser only)">
         <button id="key-show" class="sec" type="button" title="show/hide">&#128065;</button>
-        <button id="key-test" class="sec" type="button">Test key</button>
+        <button id="key-test" class="sec" type="button">Test</button>
         <button id="key-clear" class="sec" type="button">Clear</button>
       </div>
-      <p class="small">The key stays in this browser's localStorage and is sent only to your local server per run — never stored on disk, never logged, never part of history.</p>
+      <p class="small">Any OpenAI-compatible <code>/chat/completions</code> endpoint works. The key stays in this browser's localStorage and is sent only to your local server per run — never stored on disk, logged, or written into history. (Providers must support JSON-schema structured output; Anthropic's API shape is not OpenAI-compatible and is not supported here.)</p>
     </details>
 
     <div class="row">

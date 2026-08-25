@@ -387,7 +387,7 @@ describe("resolveWithCache", () => {
   });
 });
 
-describe("retraction detection — the field the plan named wrong", () => {
+describe("retraction detection — the field the design named wrong", () => {
   // A detector that never fires looks exactly like a clean corpus, so these
   // pin the two mistakes that would each have shipped ~0% recall silently:
   // reading `update-to` (which lives on the NOTICE, not the paper), and
@@ -447,7 +447,7 @@ describe("retraction detection — the field the plan named wrong", () => {
   });
 
   test("update-to is IGNORED — that field points the other way", async () => {
-    // This is the plan's mistake, pinned. `update-to` on a work means THIS work
+    // This is the design's mistake, pinned. `update-to` on a work means THIS work
     // is the notice; it says nothing about the work being cited.
     const outcome = await resolve({ "update-to": [{ DOI: "10.1/retracted", type: "retraction" }] });
     assert.equal(outcome.retracted, null, "a retraction NOTICE is not itself retracted");

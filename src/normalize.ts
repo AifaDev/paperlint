@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-// Text normalization for the submission review pipeline (plan M-R1).
+// Text normalization for the review pipeline.
 //
 // Pure functions only: no framework, no network, no state. Everything here is
 // unit-tested from tests/review-pipeline-normalize.test.mjs against the
@@ -18,7 +18,7 @@ import { createHash } from "node:crypto";
 // "café" and "cafe" — author surnames and loanwords the citation checker
 // compares against registry records.
 //
-// RULE (plan §A), unchanged: no finding may ever be raised on a difference
+// RULE, unchanged: no finding may ever be raised on a difference
 // that disappears under this normalization.
 
 /**

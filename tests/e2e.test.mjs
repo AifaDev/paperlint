@@ -77,7 +77,7 @@ describe("runReviewPipeline", () => {
     const first = await runReviewPipeline({ content, rowLocale: "en" }, deps);
     const second = await runReviewPipeline({ content, rowLocale: "en" }, deps);
     assert.equal(first.findings.length, 0);
-    assert.equal(first.content_hash, second.content_hash, "hash is the idempotency key for the cron drain");
+    assert.equal(first.content_hash, second.content_hash, "hash is the idempotency key for a scheduled re-run");
   });
 
   test("a non-English submission is SKIPPED with a reason, never judged by English rules", async () => {

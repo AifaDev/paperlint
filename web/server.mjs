@@ -35,7 +35,7 @@ if (!fs.existsSync(dist("index"))) {
 }
 const { runReviewPipeline } = require(dist("index"));
 const { toMatcherTerms } = require(dist("matcher"));
-const { DEFAULT_MODEL } = require(dist("model"));
+const { DEFAULT_MODEL, DEFAULT_BASE_URL, resolveBaseUrl } = require(dist("model"));
 
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
 
@@ -247,6 +247,7 @@ const server = http.createServer(async (req, res) => {
       glossary_terms: glossary.length,
       server_key: Boolean(process.env.GROQ_API_KEY),
       model_default: DEFAULT_MODEL,
+      base_url_default: DEFAULT_BASE_URL,
     });
   }
 
@@ -286,8 +287,8 @@ const server = http.createServer(async (req, res) => {
     return readBody(req, res, MAX_TEXT + 65536, async (buffer) => {
       const started = Date.now();
       try {
-        const { text, brief, key, source } = JSON.parse(buffer.toString("utf8") || "{}");
-        const apiKey = (key || process.env.GROQ_API_KEY || "").trim();
+        const { text, brief, key, source, baseUrl, model } = JSON.parse(buffer.toString("utf8") || "{}");
+        const apiKey = (key || process.env.REVIEW_AI_KEY || process.env.GROQ_API_KEY || "").trim();
         const modelActive = Boolean(apiKey);
 
         const result = await runReviewPipeline(
@@ -297,7 +298,12 @@ const server = http.createServer(async (req, res) => {
             citationStore,
             resolveOptions: { mailto: process.env.CROSSREF_MAILTO },
             modelEnabled: modelActive,
-            modelOptions: modelActive ? { apiKey } : undefined,
+            // Endpoint and model name come from the operator (this UI or an
+            // env var) — never from the document. Any OpenAI-compatible
+            // provider works; the default is unchanged.
+            modelOptions: modelActive
+              ? { apiKey, baseUrl: baseUrl || process.env.REVIEW_AI_BASE_URL, model: model || undefined }
+              : undefined,
           },
         );
         result.__hadBrief = Boolean(brief);
@@ -314,7 +320,7 @@ const server = http.createServer(async (req, res) => {
           result,
           layers,
           ms: Date.now() - started,
-          model: modelActive ? DEFAULT_MODEL : null,
+          model: modelActive ? (model || process.env.REVIEW_AI_MODEL || DEFAULT_MODEL) : null,
         };
         appendHistory(record, apiKey);
         json(res, 200, { ok: true, id, ms: record.ms, model: record.model, result, layers });
@@ -356,14 +362,17 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/api/key-check") {
     return readBody(req, res, 4096, async (buffer) => {
       try {
-        const { key } = JSON.parse(buffer.toString("utf8") || "{}");
+        const { key, baseUrl } = JSON.parse(buffer.toString("utf8") || "{}");
         if (!key) return json(res, 200, { ok: false, error: "no key provided" });
-        // Zero-token probe; proxied because the browser cannot call Groq (CORS).
-        const upstream = await fetch("https://api.groq.com/openai/v1/models", {
+        // Zero-token probe against the CHOSEN provider's /models, derived from
+        // the same resolver the real calls use. Proxied because the browser
+        // cannot call most providers directly (CORS).
+        const probe = resolveBaseUrl(baseUrl).replace(/\/chat\/completions$/, "/models");
+        const upstream = await fetch(probe, {
           headers: { Authorization: `Bearer ${key}` },
           signal: AbortSignal.timeout(10_000),
         });
-        json(res, 200, upstream.ok ? { ok: true } : { ok: false, error: `${upstream.status} from api.groq.com` });
+        json(res, 200, upstream.ok ? { ok: true } : { ok: false, error: `${upstream.status} from ${new URL(probe).host}` });
       } catch (error) {
         json(res, 200, { ok: false, error: error instanceof Error ? error.message : String(error) });
       }

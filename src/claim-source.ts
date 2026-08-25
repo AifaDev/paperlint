@@ -229,7 +229,7 @@ export type ClaimSourceDeps = {
   budget: ModelBudget;
   modelOptions?: ModelOptions;
   /**
-   * Optional richer evidence for one (statement, identifier) pair — M-E4's
+   * Optional richer evidence for one (statement, identifier) pair — the
    * full-text retrieval. Returning null falls back to the abstract, which is
    * what D1 used before this existed, so the hook can never make things worse.
    *

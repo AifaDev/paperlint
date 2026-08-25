@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * measure-model-survival.mjs — M-E0. Does the model layer actually run?
+ * measure-model-survival.mjs — does the model layer actually run?
  *
  *   cd .
  *   GROQ_API_KEY=gsk_... node scripts/measure-model-survival.mjs <draft.txt>

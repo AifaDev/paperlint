@@ -3,7 +3,9 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-const KEY_STORE = "paperlint.groq_key";
+const KEY_STORE = "paperlint.api_key";
+const URL_STORE = "paperlint.base_url";
+const MODEL_STORE = "paperlint.model";
 let serverKey = false;
 let lastSource = { kind: "paste", filename: null };
 
@@ -21,17 +23,33 @@ $("tab-upload").onclick = () => showTab("upload");
 function currentKey() {
   return localStorage.getItem(KEY_STORE) || "";
 }
+/** The chosen endpoint: the dropdown, or the custom field when "Custom…". */
+function currentBaseUrl() {
+  const sel = $("provider").value;
+  return sel === "custom" ? $("base-url").value.trim() : sel;
+}
+function currentModel() {
+  return $("model").value.trim();
+}
+function providerLabel() {
+  const url = currentBaseUrl();
+  try {
+    return new URL(url).host;
+  } catch {
+    return "provider";
+  }
+}
 function paintModelState() {
   const pill = $("model-state");
   if (currentKey()) {
     pill.className = "pill on";
-    pill.textContent = "model layers: active (browser key)";
+    pill.textContent = `AI checks: on · ${providerLabel()}`;
   } else if (serverKey) {
     pill.className = "pill on";
-    pill.textContent = "model layers: active (server key)";
+    pill.textContent = "AI checks: on (server key)";
   } else {
     pill.className = "pill off";
-    pill.textContent = "model layers: off — deterministic only";
+    pill.textContent = "AI checks: off — 12 deterministic checks still run";
   }
 }
 $("key").oninput = () => {
@@ -40,6 +58,13 @@ $("key").oninput = () => {
   else localStorage.removeItem(KEY_STORE);
   paintModelState();
 };
+$("provider").onchange = () => {
+  $("custom-row").hidden = $("provider").value !== "custom";
+  localStorage.setItem(URL_STORE, $("provider").value);
+  paintModelState();
+};
+$("base-url").oninput = () => { localStorage.setItem(URL_STORE, "custom:" + $("base-url").value.trim()); paintModelState(); };
+$("model").oninput = () => localStorage.setItem(MODEL_STORE, $("model").value.trim());
 $("key-show").onclick = () => {
   $("key").type = $("key").type === "password" ? "text" : "password";
 };
@@ -53,7 +78,7 @@ $("key-test").onclick = async () => {
   const res = await fetch("/api/key-check", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ key: currentKey() }),
+    body: JSON.stringify({ key: currentKey(), baseUrl: currentBaseUrl() }),
   }).then((r) => r.json());
   $("status").textContent = res.ok ? "Key OK." : "Key failed: " + (res.error || "unknown");
 };
@@ -126,6 +151,8 @@ $("run").onclick = async () => {
         text: $("text").value,
         brief: $("brief").value || null,
         key: currentKey() || null,
+        baseUrl: currentBaseUrl() || null,
+        model: currentModel() || null,
         source: lastSource,
       }),
     }).then((r) => r.json());
@@ -281,6 +308,15 @@ $("clear-history").onclick = async () => {
   const status = await fetch("/api/status").then((r) => r.json());
   serverKey = Boolean(status.server_key);
   $("key").value = currentKey();
+  const savedUrl = localStorage.getItem(URL_STORE) || "";
+  if (savedUrl.startsWith("custom:")) {
+    $("provider").value = "custom";
+    $("custom-row").hidden = false;
+    $("base-url").value = savedUrl.slice(7);
+  } else if (savedUrl) {
+    $("provider").value = savedUrl;
+  }
+  $("model").value = localStorage.getItem(MODEL_STORE) || "";
   paintModelState();
   loadHistory();
 })();

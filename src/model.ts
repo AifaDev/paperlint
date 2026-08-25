@@ -1,4 +1,4 @@
-// Stage D transport (plan M-D2): the ONLY place this pipeline talks to a
+// Model transport: the ONLY place this pipeline talks to a
 // model provider. Nothing here decides anything about a submission — it sends
 // a prompt, validates the shape of what comes back, and accounts for what it
 // cost. The checks that use it live in their own modules and are measured
@@ -22,7 +22,45 @@
 // is retained by the json-file driver and an unpublished manuscript should not
 // be sitting in it.
 
+/**
+ * DEFAULT provider endpoint. Any OpenAI-compatible /chat/completions endpoint
+ * works — Groq, OpenAI, OpenRouter, Together, DeepSeek, Fireworks, Cerebras,
+ * xAI, Mistral, or a local server such as Ollama or LM Studio — by passing
+ * `baseUrl` in ModelOptions or setting REVIEW_AI_BASE_URL.
+ *
+ * THE SSRF INVARIANT STILL HOLDS, and the distinction is the whole point: the
+ * endpoint is chosen by the OPERATOR (an env var, or a field in a localhost-only
+ * UI). It is NEVER derived from the document under review. Author-supplied text
+ * cannot influence where a request goes; `resolveBaseUrl` below rejects
+ * anything that is not a plain http(s) origin, so a malformed or hostile value
+ * fails closed rather than becoming a request.
+ */
+export const DEFAULT_BASE_URL = "https://api.groq.com/openai/v1";
+
+/** Kept for callers that referenced the original constant. */
 export const GROQ_HOST = "https://api.groq.com";
+
+/**
+ * Normalize an operator-supplied endpoint to a `/chat/completions` URL.
+ * Accepts a bare origin, a base ending in /v1, or the full completions path.
+ */
+export function resolveBaseUrl(raw?: string): string {
+  const value = (raw ?? "").trim() || DEFAULT_BASE_URL;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return `${DEFAULT_BASE_URL}/chat/completions`;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return `${DEFAULT_BASE_URL}/chat/completions`;
+  }
+  const path = url.pathname.replace(/\/+$/, "");
+  if (path.endsWith("/chat/completions")) return url.origin + path;
+  if (path) return `${url.origin}${path}/chat/completions`;
+  // A bare origin: assume the near-universal OpenAI-compatible /v1 mount.
+  return `${url.origin}/v1/chat/completions`;
+}
 
 /**
  * Groq's flagship open-weight production model: 131k context, reasoning
@@ -38,7 +76,7 @@ const DEFAULT_TIMEOUT_MS = 20_000;
  * unbounded on the reasoning that "volume per submission is tiny" — true for
  * DOI lookups, and false the moment a request is billed per token.
  *
- * These are per RUN. The hard daily bound is this times the drain rate
+ * These are per RUN. The hard daily bound is this times the run rate
  * (DRAIN_LIMIT = 2 runs per 2 minutes), which is a number an operator can
  * compute rather than discover on an invoice.
  */
@@ -222,6 +260,8 @@ export type ModelOptions = {
   /** Injected so every test runs offline. Defaults to global fetch. */
   fetchImpl?: typeof fetch;
   apiKey?: string;
+  /** OpenAI-compatible endpoint. Operator-chosen, never document-derived. */
+  baseUrl?: string;
   model?: string;
   timeoutMs?: number;
 };
@@ -233,7 +273,8 @@ export type ModelOptions = {
  * not fail every run.
  */
 export function isModelLayerEnabled(): boolean {
-  return (process.env.REVIEW_AI_ENABLED || "").trim() === "true" && Boolean((process.env.GROQ_API_KEY || "").trim());
+  const key = (process.env.REVIEW_AI_KEY || process.env.GROQ_API_KEY || "").trim();
+  return (process.env.REVIEW_AI_ENABLED || "").trim() === "true" && Boolean(key);
 }
 
 export function modelName(): string {
@@ -302,7 +343,9 @@ export async function callModel<T>(
   options: ModelOptions = {},
 ): Promise<ModelOutcome<T>> {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const apiKey = options.apiKey ?? process.env.GROQ_API_KEY ?? "";
+  // GROQ_API_KEY is honoured for continuity; REVIEW_AI_KEY is the neutral name.
+  const apiKey = options.apiKey ?? process.env.REVIEW_AI_KEY ?? process.env.GROQ_API_KEY ?? "";
+  const endpoint = resolveBaseUrl(options.baseUrl ?? process.env.REVIEW_AI_BASE_URL);
   const inputChars = request.system.length + request.user.length;
 
   if (!apiKey) return { ok: false, reason: "no api key", usage: budget.usage };
@@ -350,7 +393,7 @@ export async function callModel<T>(
 
   let response: Response;
   try {
-    response = await fetchImpl(`${GROQ_HOST}/openai/v1/chat/completions`, {
+    response = await fetchImpl(endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -409,7 +452,7 @@ export async function callModel<T>(
       bucket.drain();
       await sleep(Math.min(Math.max(retryAfterMs(response, 0), 2_000), 30_000));
       try {
-        const retry = await fetchImpl(`${GROQ_HOST}/openai/v1/chat/completions`, {
+        const retry = await fetchImpl(endpoint, {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: requestBody,

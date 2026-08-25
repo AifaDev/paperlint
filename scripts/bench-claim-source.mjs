@@ -205,7 +205,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * Measured 2026-08-14: the free tier's binding limit is tokens-per-DAY (200,000)
  * and it appears in no rate-limit header — only in the 429 body. This run needs
  * ~203,816 tokens, so it CANNOT finish inside one daily window; spanning two is
- * the plan. Six exponential retries topping out at 60s covers a per-minute
+ * the design. Six exponential retries topping out at 60s covers a per-minute
  * limit and is useless against a daily one: the harness would burn its attempts
  * in three minutes, record 240 errors, and exit having measured nothing.
  *

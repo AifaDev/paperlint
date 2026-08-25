@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * bench-bm25-gate.mjs — the free gate on M-E4 (full-text evidence retrieval).
+ * bench-bm25-gate.mjs — the free gate on full-text evidence retrieval.
  *
  *   node scripts/bench-bm25-gate.mjs
  *
- * THE DECISION THIS EXISTS TO MAKE. M-E4 proposes giving D1 the cited paper's
+ * THE DECISION THIS EXISTS TO MAKE. Full-text retrieval would give the claim-vs-source check the cited paper's
  * FULL TEXT instead of its abstract, selecting evidence with BM25 against the
  * citing sentence and keeping the top 5. Raw full text is ~13,850 tokens per
  * call, which exceeds the tier's per-minute ceiling outright, so selection is a
@@ -33,7 +33,7 @@
  *
  * BM25 beating neither means the ranking contributes nothing and top-5 is
  * working only because documents are short — which would NOT transfer to full
- * text, the only case M-E4 is about.
+ * text, the only case full-text retrieval is about.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -146,7 +146,7 @@ const wilson = (mean, n) => {
 const strata = [
   { label: "ALL pairs", keep: () => true, note: "flattering — half these docs are shorter than k" },
   { label: "|doc| > 5", keep: (r) => r.n > K, note: "selection actually binds" },
-  { label: "|doc| > 10", keep: (r) => r.n > 10, note: "closest to the full-text case M-E4 is about" },
+  { label: "|doc| > 10", keep: (r) => r.n > 10, note: "closest to the real full-text case" },
 ];
 
 const report = { generated_by: "scripts/bench-bm25-gate.mjs", model_calls: 0, k: K, pairs: pairs.length, strata: [] };
@@ -237,24 +237,24 @@ report.distractor_stress = {
 };
 
 const binding = report.strata.find((s) => s.stratum === "|doc| > 10");
-const THRESHOLD = 0.29; // the plan's kill line
+const THRESHOLD = 0.29; // the design's kill line
 report.verdict = {
   threshold: THRESHOLD,
   threshold_source:
-    "PHASE 3 / M-E4: 'Run the BM25 selector against them and compute Recall@5. If it lands materially " +
+    "The pre-registered kill line: 'Run the BM25 selector against them and compute Recall@5. If it lands materially " +
     "below 0.29, the cited gain never described this system and the direction dies at zero cost.'",
   binding_stratum_recall: binding.recall_at_5.bm25,
   passes_threshold: binding.recall_at_5.bm25 >= THRESHOLD,
   beats_baselines: binding.gain_over_best_baseline > 0,
   caveat:
     "This is an UPPER BOUND on the full-text case, not an estimate of it. Citation-Integrity's cited " +
-    "documents are ABSTRACTS — a few sentences — while M-E4 would select from a full paper of hundreds. " +
+    "documents are ABSTRACTS — a few sentences — while full-text retrieval would select from a full paper of hundreds. " +
     "Finding the evidence among 11-41 candidates is strictly easier than finding it among 300. A pass " +
     "here is necessary, not sufficient; a failure here is decisive.",
 };
 
 console.log(`\nGate: binding stratum (|doc| > 10) Recall@5 = ${binding.recall_at_5.bm25.toFixed(3)} vs threshold ${THRESHOLD}`);
-console.log(report.verdict.passes_threshold ? "  PASSES the plan's kill line" : "  FAILS — M-E4 dies here, at zero cost");
+console.log(report.verdict.passes_threshold ? "  PASSES the kill line" : "  FAILS — the pipeline dies here, at zero cost");
 console.log(
   report.verdict.beats_baselines
     ? `  and beats the best baseline by ${binding.gain_over_best_baseline.toFixed(3)}`

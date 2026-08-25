@@ -1,10 +1,10 @@
 import { jaccard, normalizeTokens } from "./normalize";
 
-// Glossary matcher (plan §A). Pure: takes terms + text, returns findings.
+// Glossary matcher. Pure: takes terms + text, returns findings.
 // No framework, no network — the same module runs under node --test, in the
-// threshold-sweep script, and (Track B) inside the cron drain.
+// threshold-sweep script, and inside a host application.
 //
-// ENGLISH ONLY since 2026-08-14 (owner directive). The `locale` parameter is
+// ENGLISH ONLY by design. The `locale` parameter is
 // GONE rather than pinned to "en", and that is deliberate: it was a positional
 // argument between two other arguments, and passing it in the wrong slot
 // silently returned zero findings instead of throwing — a failure that cost

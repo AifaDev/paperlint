@@ -1,6 +1,6 @@
 import { parse, Node, HTMLElement, NodeType } from "node-html-parser";
 
-// Content extraction for the review pipeline (plan §Extract).
+// Content extraction for the review pipeline.
 //
 // `article.content` is ONE field carrying TWO formats, and both are live:
 // rich-text-editor HTML from a CMS, or raw plain text / Markdown from a

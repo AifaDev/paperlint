@@ -31,7 +31,21 @@ const FORBIDDEN = [
   "hak" + "eem",
   "unified-" + "website",
   "/Us" + "ers/",
+  // Internal planning vocabulary: meaningless to a reader of this repo and a
+  // pointer at a document nobody outside it can see. Added 2026-08-25 after
+  // 28 such references survived the first pass — the gate only ever catches
+  // what it was told about, so every miss becomes a new pattern here.
+  "own" + "er directive",
+  "own" + "er decision",
+  "cli" + "ent mandate",
+  "pl" + "an §",
+  "Tra" + "ck B",
+  "cr" + "on drain",
 ];
+
+/** Milestone codes (a letter-dash-letter-digit shape) — same reason as above.
+ *  Written as a regex rather than examples so this file passes its own scan. */
+const FORBIDDEN_RE = [/\bM-[RDE]\d\b/];
 
 const SKIP_DIRS = new Set([".git", "node_modules", "dist", "history", "benchmarks"]);
 const SKIP_EXT = new Set([".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2", ".pdf", ".zip"]);
@@ -47,6 +61,13 @@ function walk(dir) {
     const file = path.join(dir, entry.name);
     const text = fs.readFileSync(file, "utf8");
     const lower = text.toLowerCase();
+    for (const re of FORBIDDEN_RE) {
+      const m = re.exec(text);
+      if (m) {
+        console.error(`${path.relative(ROOT, file)}:${text.slice(0, m.index).split("\n").length}: matched a forbidden pattern`);
+        hits += 1;
+      }
+    }
     for (const pattern of FORBIDDEN) {
       let at = lower.indexOf(pattern.toLowerCase());
       while (at !== -1) {
