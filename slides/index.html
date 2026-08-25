@@ -3,7 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>paperlint — the layers</title>
+<title>paperlint — the checks</title>
+<!-- Gambetta lives on Fontshare, Azeret Mono on Google. Offline viewers fall
+     back to Georgia / system mono and the deck stays fully legible. -->
+<link href="https://api.fontshare.com/v2/css?f[]=gambetta@600,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* ===========================================
    FIXED 16:9 STAGE: MANDATORY BASE STYLES
@@ -28,203 +32,175 @@ img, video, canvas, svg { max-width: 100%; max-height: 100%; }
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
 }
 
-/* === THEME: "GALLEY PROOF" ==================================
-   A typesetter's dark bench: ink-black ground, paper-cream type,
-   proofreader red accents. Self-contained — deliberately NO webfonts
-   (this deck ships inside a repo and must open offline), so the
-   typography leans on strong monospace structure instead.
+/* === THEME: BLUEPRINT =======================================
+   A drafting table at night: deep blue ground, faint grid, cyan
+   line-art pictograms. One card per check; one example per card.
    ============================================================ */
 :root {
-  --stage-bg: #101012;
-  --slide-bg: #16161a;
-  --paper: #ece5d3;
-  --dim: #96907f;
-  --red: #e0523f;
-  --green: #6fbf8b;
-  --amber: #d9a743;
-  --rule: #2c2c33;
-  --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
-  --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --stage-bg: #0a1a2e;
+  --slide-bg: #0d2138;
+  --ink: #dce8f5;
+  --dim: #8fb0cc;
+  --cyan: #57c4ff;
+  --green: #7ce3a4;
+  --line: #2c527a;
+  --panel: rgba(15, 41, 70, 0.85);
+  --chip: #0a1e33;
+  --serif: Gambetta, Georgia, "Times New Roman", serif;
+  --mono: "Azeret Mono", ui-monospace, Menlo, Consolas, monospace;
 }
-.slide { color: var(--paper); font-family: var(--mono); }
+.slide {
+  color: var(--ink); font-family: var(--mono);
+  background-color: var(--slide-bg);
+  background-image: linear-gradient(#16304d 1px, transparent 1px), linear-gradient(90deg, #16304d 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+.slug { position: absolute; top: 40px; left: 90px; right: 90px; display: flex; justify-content: space-between; font-size: 19px; letter-spacing: .12em; color: var(--dim); text-transform: uppercase; }
+.slug b { color: var(--cyan); font-weight: 500; }
 
-/* shared chrome: a proofing-slug header on every slide */
-.slug { position: absolute; top: 44px; left: 80px; right: 80px; display: flex; justify-content: space-between; font-size: 20px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; border-bottom: 1px solid var(--rule); padding-bottom: 18px; }
-.slug b { color: var(--red); font-weight: 700; }
+/* pictograms */
+svg.pic { stroke: var(--cyan); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 
-/* === SLIDE 1: TITLE + THE LAW + FLOW ======================== */
-.s1 .title { position: absolute; top: 150px; left: 80px; }
-.s1 .title h1 { margin: 0; font-family: var(--serif); font-size: 130px; font-weight: 400; letter-spacing: -0.01em; color: var(--paper); }
-.s1 .title h1 .mark { color: var(--red); }
-.s1 .title p { margin: 18px 0 0 6px; font-size: 30px; color: var(--dim); max-width: 1300px; line-height: 1.5; }
-.s1 .law { position: absolute; top: 452px; left: 86px; font-size: 34px; line-height: 1.45; max-width: 1720px; }
-.s1 .law .rule-name { color: var(--amber); letter-spacing: .1em; text-transform: uppercase; font-size: 22px; display: block; margin-bottom: 10px; }
-.s1 .law em { color: var(--paper); font-style: normal; border-bottom: 3px solid var(--red); }
-.s1 .flow { position: absolute; left: 80px; right: 80px; bottom: 120px; display: flex; align-items: stretch; gap: 0; }
-.s1 .node { flex: 1; border: 1px solid var(--rule); padding: 26px 22px; position: relative; }
-.s1 .node + .node { margin-left: 56px; }
-.s1 .node + .node::before { content: "→"; position: absolute; left: -44px; top: 50%; transform: translateY(-50%); color: var(--red); font-size: 34px; }
-.s1 .node .k { font-size: 20px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); display: block; margin-bottom: 10px; }
-.s1 .node .v { font-size: 25px; line-height: 1.4; }
-.s1 .node.det { border-color: var(--green); } .s1 .node.det .k { color: var(--green); }
-.s1 .node.mod { border-color: var(--amber); } .s1 .node.mod .k { color: var(--amber); }
-.s1 .node.out { border-color: var(--red); } .s1 .node.out .k { color: var(--red); }
-.s1 .foot { position: absolute; bottom: 54px; left: 80px; font-size: 22px; color: var(--dim); }
+/* === SLIDE 1: TITLE + FLOW ================================== */
+.s1 h1 { position: absolute; top: 170px; left: 100px; margin: 0; font-family: var(--serif); font-weight: 600; font-size: 180px; color: #fff; }
+.s1 h1 span { color: var(--cyan); }
+.s1 .sub { position: absolute; top: 420px; left: 104px; font-size: 28px; color: var(--dim); max-width: 1000px; line-height: 1.6; }
+.s1 .law { position: absolute; top: 560px; left: 104px; font-family: var(--serif); font-size: 44px; color: #fff; }
+.s1 .law u { text-decoration-color: var(--cyan); text-decoration-thickness: 4px; text-underline-offset: 10px; }
+.s1 .flow { position: absolute; left: 100px; right: 100px; bottom: 130px; display: flex; align-items: center; gap: 24px; }
+.s1 .step { flex: 1; border: 1.5px solid var(--line); background: var(--panel); border-radius: 14px; padding: 24px 10px; text-align: center; font-size: 23px; }
+.s1 .step small { display: block; margin-top: 6px; font-size: 17px; color: var(--dim); }
+.s1 .arr { color: var(--cyan); font-size: 40px; }
+.s1 .pg, .pg { position: absolute; bottom: 42px; right: 96px; font-size: 18px; color: #557499; }
 
-/* === SLIDE 2: DETERMINISTIC LAYERS ========================== */
-.rows { position: absolute; top: 140px; left: 80px; right: 80px; }
-.rows h2 { margin: 0 0 24px; font-family: var(--serif); font-size: 56px; font-weight: 400; }
-.rows h2 span { color: var(--green); }
-.lay { display: grid; grid-template-columns: 400px 1fr; gap: 26px; padding: 14px 0; border-top: 1px solid var(--rule); align-items: baseline; }
-.lay:last-child { border-bottom: 1px solid var(--rule); }
-.lay .n { font-size: 28px; color: var(--paper); }
-.lay .n i { font-style: normal; color: var(--red); margin-right: 16px; }
-.lay .d { font-size: 22px; line-height: 1.45; color: var(--dim); }
-.lay .ex { grid-column: 2; font-size: 20px; line-height: 1.5; margin-top: 6px; }
-.lay .ex .in { color: var(--paper); background: #232329; padding: 2px 8px; border-radius: 4px; }
-.lay .ex .arrow { color: var(--red); margin: 0 10px; }
-.lay .ex .out { color: var(--green); }
-.lay .d b { color: var(--paper); font-weight: 600; }
-.lay .g { font-size: 21px; color: var(--green); text-align: right; }
+/* === CHECK-CARD GRID ======================================== */
+.head { position: absolute; top: 96px; left: 96px; }
+.head h2 { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 62px; color: #fff; }
+.head h2 span { color: var(--cyan); }
+.grid { position: absolute; left: 90px; right: 90px; top: 210px; bottom: 70px; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; gap: 22px; }
+.g3 { grid-template-columns: repeat(2, 1fr); }
+.card { background: var(--panel); border: 1.5px solid var(--line); border-radius: 14px; padding: 20px 22px 16px; display: flex; flex-direction: column; }
+.card .pic { height: 52px; align-self: flex-start; margin-bottom: 10px; }
+.card h3 { margin: 0 0 10px; font-family: var(--serif); font-weight: 600; font-size: 27px; color: #fff; }
+.card .io { font-size: 16.5px; line-height: 1.65; color: var(--dim); }
+.io .in { background: var(--chip); border: 1px solid var(--line); padding: 1px 7px; border-radius: 5px; color: #fff; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.io .a { color: var(--cyan); margin: 0 6px; }
+.io .out { color: var(--green); }
 
-/* === SLIDE 3: MODEL LAYERS + NUMBERS ======================== */
-.s3 .rows h2 span { color: var(--amber); }
-.s3 .lay { grid-template-columns: 430px 1fr; }
-.metrics { position: absolute; left: 80px; right: 80px; bottom: 92px; display: flex; gap: 30px; }
-.metric { flex: 1; border: 1px solid var(--rule); border-top: 4px solid var(--red); padding: 26px 28px; }
-.metric .num { font-size: 56px; font-weight: 700; color: var(--paper); }
-.metric .num small { font-size: 26px; color: var(--dim); font-weight: 400; }
-.metric .what { font-size: 21px; color: var(--dim); margin-top: 8px; line-height: 1.45; }
-.metric .src { font-size: 18px; color: var(--green); margin-top: 12px; }
+/* slide 3: bigger cards + a numbers rail */
+.s3 .grid { bottom: 250px; }
+.s3 .card h3 { font-size: 31px; }
+.s3 .card .io { font-size: 18px; }
+.nums { position: absolute; left: 90px; right: 90px; bottom: 68px; display: flex; gap: 22px; }
+.num { flex: 1; border: 1.5px solid var(--line); border-radius: 14px; background: var(--panel); padding: 20px 26px; }
+.num b { display: block; font-family: var(--serif); font-size: 52px; color: #fff; }
+.num span { font-size: 17px; color: var(--dim); line-height: 1.4; display: block; margin-top: 4px; }
+.num i { font-style: normal; color: var(--green); font-size: 15px; }
 
-/* === REVEAL ANIMATION ======================================= */
-.reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
+/* === REVEAL ================================================= */
+.reveal { opacity: 0; transform: translateY(16px); transition: opacity .5s ease, transform .5s ease; }
 .slide.active .reveal { opacity: 1; transform: none; }
-.slide.active .reveal:nth-child(2), .slide.active .r2 { transition-delay: .12s; }
-.slide.active .r3 { transition-delay: .24s; }
-.slide.active .r4 { transition-delay: .36s; }
-.slide.active .r5 { transition-delay: .48s; }
+.slide.active .grid > *:nth-child(2), .slide.active .r2 { transition-delay: .06s; }
+.slide.active .grid > *:nth-child(3), .slide.active .r3 { transition-delay: .12s; }
+.slide.active .grid > *:nth-child(4) { transition-delay: .18s; }
+.slide.active .grid > *:nth-child(5) { transition-delay: .24s; }
+.slide.active .grid > *:nth-child(6) { transition-delay: .3s; }
+.slide.active .grid > *:nth-child(7) { transition-delay: .36s; }
+.slide.active .grid > *:nth-child(8) { transition-delay: .42s; }
+.slide.active .grid > *:nth-child(n+9) { transition-delay: .48s; }
 
-/* deck chrome */
-.deck-controls { font-family: var(--mono); color: #777; font-size: 13px; background: rgba(20,20,24,.85); border: 1px solid #333; border-radius: 99px; padding: 6px 16px; }
+.deck-controls { font-family: var(--mono); color: #7d95ad; font-size: 13px; background: rgba(10, 26, 46, .85); border: 1px solid var(--line); border-radius: 99px; padding: 6px 16px; }
 </style>
 </head>
 <body>
 <div class="deck-viewport">
   <div class="deck-stage">
 
-    <!-- === SLIDE 1 ============================================ -->
+    <!-- === SLIDE 1: TITLE ==================================== -->
     <section class="slide s1 active">
-      <div class="slug"><span><b>paperlint</b> · review pipeline for research manuscripts</span><span>1 / 3</span></div>
-      <div class="title reveal">
-        <h1>paper<span class="mark">lint</span></h1>
-        <p>A review pipeline for research manuscripts: citations, references, terminology, consistency, and claims — every layer reporting honestly, including when it did not run.</p>
-      </div>
-      <div class="law reveal r2">
-        <span class="rule-name">The design law</span>
-        <em>Deterministic candidates; the model only adjudicates.</em>
-        Zero candidates &rArr; zero model calls. Every model verdict must quote text that exists — ungrounded output is dropped and counted, never salvaged.
-      </div>
+      <div class="slug"><span><b>paperlint</b> · checks for research manuscripts</span><span>github.com/AifaDev/paperlint</span></div>
+      <h1 class="reveal">paper<span>lint</span></h1>
+      <p class="sub reveal r2">Sixteen checks. Every card on the next two slides is one real input and one real finding — no hand-waving.</p>
+      <div class="law reveal r2">The rule: <u>deterministic code finds, the model only judges.</u></div>
       <div class="flow reveal r3">
-        <div class="node"><span class="k">Extract</span><span class="v">HTML / plain text &rarr; text + verifiable offsets</span></div>
-        <div class="node det"><span class="k">Deterministic layers</span><span class="v">resolve, compare, abstain — no model, no guessing</span></div>
-        <div class="node det"><span class="k">Candidate generators</span><span class="v">decide the only questions the model is ever asked</span></div>
-        <div class="node mod"><span class="k">Model adjudication</span><span class="v">one candidate at a time, verbatim-quote gated</span></div>
-        <div class="node out"><span class="k">Advisory findings</span><span class="v">data for a human — never an accept / reject</span></div>
+        <div class="step">your draft<small>paste · PDF · DOCX</small></div>
+        <div class="arr">&rarr;</div>
+        <div class="step">12 deterministic checks<small>no key needed</small></div>
+        <div class="arr">&rarr;</div>
+        <div class="step">4 AI judgements<small>optional — your Groq key</small></div>
+        <div class="arr">&rarr;</div>
+        <div class="step">advisory findings<small>you decide, always</small></div>
       </div>
-      <div class="foot">Failure is silence plus a recorded reason — a truncated run says <b>partial</b>, never “clean”.</div>
+      <div class="pg">1 / 3</div>
     </section>
 
-    <!-- === SLIDE 2 ============================================ -->
+    <!-- === SLIDE 2: THE 12 DETERMINISTIC CHECKS ============== -->
     <section class="slide s2">
-      <div class="slug"><span><b>paperlint</b> · the deterministic layers</span><span>2 / 3</span></div>
-      <div class="rows">
-        <h2 class="reveal">Five layers, <span>no model required</span></h2>
-        <div class="lay reveal r2">
-          <div class="n"><i>01</i>Glossary near-miss</div>
-          <div class="d">Token-set matching against a canonical glossary. Abstains on ambiguity; single common words never fire.</div>
-          <div class="ex"><span class="in">"kernel support machine"</span><span class="arrow">&rarr;</span><span class="out">nearly matches "Kernel Support Vector Machine (KSVM)" — use the canonical term</span></div>
-        </div>
-        <div class="lay reveal r2">
-          <div class="n"><i>02</i>Citation resolution</div>
-          <div class="d">Every DOI / arXiv id resolved (Crossref &rarr; DataCite &rarr; doi.org; arXiv &rarr; OpenAlex). Timeouts are <b>unverified</b>, never accusations.</div>
-          <div class="ex"><span class="in">doi:10.9999/not-a-real-doi</span><span class="arrow">&rarr;</span><span class="out">not registered — all three registries had to agree before saying so</span></div>
-        </div>
-        <div class="lay reveal r3">
-          <div class="n"><i>03</i>Retraction check</div>
-          <div class="d">Reads <b>updated-by</b> from the payload already fetched — zero extra requests. Corrections are <b>not</b> flagged.</div>
-          <div class="ex"><span class="in">doi:10.1016/S0140-6736(97)11096-0</span><span class="arrow">&rarr;</span><span class="out">was RETRACTED on 2010-02-06 — the notice's own DOI is named so a reviewer can read it</span></div>
-        </div>
-        <div class="lay reveal r4">
-          <div class="n"><i>04</i>Reference &amp; float integrity</div>
-          <div class="d">Cited-but-not-listed, never-cited, duplicates, missing years — plus figures/tables captioned but never referenced, or referenced but missing. Refuses to run unless the style is really in use.</div>
-          <div class="ex"><span class="in">prose cites [5]; the list ends at [4]</span><span class="arrow">&rarr;</span><span class="out">"The text cites [5], but the reference list has no entry [5]"</span></div>
-        </div>
-        <div class="lay reveal r5">
-          <div class="n"><i>05</i>Summary consistency</div>
-          <div class="d">Percentages asserted in the abstract that the body never states. Rounding at the summary's own precision is fine.</div>
-          <div class="ex"><span class="in">summary: "45%" · body: never mentions it</span><span class="arrow">&rarr;</span><span class="out">"Summaries should not carry figures the body does not support"</span></div>
-        </div>
+      <div class="slug"><span><b>paperlint</b> · deterministic checks</span><span>2 / 3</span></div>
+      <div class="head"><h2>12 checks, <span>no AI needed</span></h2></div>
+      <div class="grid">
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M12 46 L34 14 L56 46 M21 34 H47"/><path d="M70 24 l8 8 l14 -16"/></svg>
+          <h3>Term check</h3><div class="io"><span class="in">"kernel support machine"</span><span class="a">&rarr;</span><span class="out">&asymp; "Kernel Support Vector Machine"</span></div></div>
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="14" y="10" width="46" height="40" rx="4"/><path d="M22 22 H52 M22 32 H52 M22 42 H38"/><path d="M72 20 L88 40 M88 20 L72 40"/></svg>
+          <h3>Fake DOI</h3><div class="io"><span class="in">doi:10.9999/not-real</span><span class="a">&rarr;</span><span class="out">unregistered — 3 registries agree</span></div></div>
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><circle cx="30" cy="30" r="16"/><path d="M42 42 L58 58" transform="translate(0,-12)"/><path d="M66 16 h20 M66 28 h20 M66 40 h12"/></svg>
+          <h3>Wrong target</h3><div class="io"><span class="in">DOI &ne; the work the prose describes</span><span class="a">&rarr;</span><span class="out">mismatch flagged</span></div></div>
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="20" y="8" width="44" height="44" rx="4"/><path d="M14 30 H70" stroke-width="5"/></svg>
+          <h3>Retracted source</h3><div class="io"><span class="in">Wakefield 1998</span><span class="a">&rarr;</span><span class="out">RETRACTED 2010 — notice linked</span></div></div>
+
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M14 14 h30 M14 26 h30 M14 38 h30 M14 50 h18"/><path d="M62 22 h24 M62 34 h24" stroke-dasharray="4 6"/></svg>
+          <h3>Cited, not listed</h3><div class="io"><span class="in">prose cites [5]</span><span class="a">&rarr;</span><span class="out">the list has no entry [5]</span></div></div>
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M14 14 h34 M14 26 h34 M14 38 h34"/><circle cx="74" cy="30" r="14"/><path d="M67 30 h14"/></svg>
+          <h3>Never cited</h3><div class="io"><span class="in">[3] sits in the list</span><span class="a">&rarr;</span><span class="out">no sentence ever cites it</span></div></div>
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="12" y="12" width="32" height="36" rx="4"/><rect x="52" y="12" width="32" height="36" rx="4"/><path d="M22 26 h12 M22 34 h12 M62 26 h12 M62 34 h12"/></svg>
+          <h3>Duplicate entry</h3><div class="io"><span class="in">[6] repeats [1]</span><span class="a">&rarr;</span><span class="out">same work listed twice</span></div></div>
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><circle cx="30" cy="30" r="18"/><path d="M30 18 V30 L40 36"/><path d="M60 30 h26" stroke-dasharray="4 6"/></svg>
+          <h3>Missing year</h3><div class="io"><span class="in">an undated entry</span><span class="a">&rarr;</span><span class="out">flagged ("in press" is fine)</span></div></div>
+
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="12" y="10" width="40" height="30" rx="3"/><path d="M18 34 L30 20 L40 30 L46 24"/><path d="M64 44 h22" stroke-dasharray="4 6"/></svg>
+          <h3>Orphan figure</h3><div class="io"><span class="in">Figure 1 has a caption</span><span class="a">&rarr;</span><span class="out">the text never points at it</span></div></div>
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M14 20 h40 M14 32 h40 M14 44 h28"/><rect x="64" y="14" width="24" height="20" rx="3" stroke-dasharray="4 6"/></svg>
+          <h3>Ghost figure</h3><div class="io"><span class="in">"see Figure 2"</span><span class="a">&rarr;</span><span class="out">no Figure 2 exists</span></div></div>
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="12" y="8" width="34" height="22" rx="3"/><path d="M20 19 h18"/><rect x="12" y="36" width="76" height="16" rx="3"/><path d="M20 44 h60"/></svg>
+          <h3>Summary drift</h3><div class="io"><span class="in">abstract says "45%"</span><span class="a">&rarr;</span><span class="out">the body never states it</span></div></div>
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><circle cx="34" cy="30" r="20"/><path d="M16 30 h36 M34 12 c8 10 8 26 0 36 M34 12 c-8 10 -8 26 0 36"/><path d="M68 40 l8 8 l14 -16"/></svg>
+          <h3>Language gate</h3><div class="io"><span class="in">non-English draft</span><span class="a">&rarr;</span><span class="out">skipped honestly, never misjudged</span></div></div>
       </div>
+      <div class="pg">2 / 3</div>
     </section>
 
-    <!-- === SLIDE 3 ============================================ -->
+    <!-- === SLIDE 3: THE 4 AI JUDGEMENTS + NUMBERS ============ -->
     <section class="slide s3">
-      <div class="slug"><span><b>paperlint</b> · the model layers (optional — bring a Groq key)</span><span>3 / 3</span></div>
-      <div class="rows">
-        <h2 class="reveal">Four adjudicators, <span>measured before shipped</span></h2>
-        <div class="lay reveal r2">
-          <div class="n"><i>D1</i>Claim vs source</div>
-          <div class="ex"><span class="in">"their survey achieved 95% accuracy" &middot; abstract: "we do not report accuracy figures"</span><span class="arrow">&rarr;</span><span class="out">unsupported — both quotes verified verbatim, or the finding dies</span></div>
-        </div>
-        <div class="lay reveal r2">
-          <div class="n"><i>D2</i>Contradiction</div>
-          <div class="ex"><span class="in">"91.4% accuracy" &hellip; later &hellip; "99.2% accuracy"</span><span class="arrow">&rarr;</span><span class="out">same metric, conflicting values — the model decides if it is truly one quantity</span></div>
-        </div>
-        <div class="lay reveal r3">
-          <div class="n"><i>D3</i>Methodology</div>
-          <div class="ex"><span class="in">"a 12-point improvement" &middot; no baseline anywhere in Methods</span><span class="arrow">&rarr;</span><span class="out">gap anchored to that exact quoted claim — absence alone is never reported</span></div>
-        </div>
-        <div class="lay reveal r3">
-          <div class="n"><i>D4</i>Overclaiming</div>
-          <div class="ex"><span class="in">"our single trial proves the method eliminates hallucination entirely"</span><span class="arrow">&rarr;</span><span class="out">evidence (one trial, five examples) cannot carry that strength of claim</span></div>
-        </div>
+      <div class="slug"><span><b>paperlint</b> · AI judgements (bring your own key)</span><span>3 / 3</span></div>
+      <div class="head"><h2>4 judgements, <span>quote-verified</span></h2></div>
+      <div class="grid g3">
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><rect x="10" y="12" width="34" height="38" rx="4"/><rect x="56" y="12" width="34" height="38" rx="4"/><path d="M44 30 h12 M50 24 v12" stroke-width="2.5"/></svg>
+          <h3>Does the source say that?</h3><div class="io"><span class="in">"their survey achieved 95% accuracy"</span><span class="a">vs</span><span class="in">abstract: "we do not report accuracy"</span><span class="a">&rarr;</span><span class="out">unsupported — both quotes verified verbatim first</span></div></div>
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M14 44 L40 16 M40 44 L14 16"/><path d="M60 30 h28"/><path d="M60 20 h28 M60 40 h28" stroke-dasharray="3 5"/></svg>
+          <h3>Self-contradiction</h3><div class="io"><span class="in">"91.4% accuracy"</span><span class="a">&hellip;</span><span class="in">"99.2% accuracy"</span><span class="a">&rarr;</span><span class="out">same metric, two values</span></div></div>
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M20 50 V22 M36 50 V12 M52 50 V30"/><path d="M68 50 V36" stroke-dasharray="4 5"/><path d="M12 50 H92"/></svg>
+          <h3>Missing baseline</h3><div class="io"><span class="in">"a 12-point improvement"</span><span class="a">+</span><span class="in">no baseline in Methods</span><span class="a">&rarr;</span><span class="out">gap anchored to that exact claim</span></div></div>
+        <div class="card reveal"><svg class="pic" viewBox="0 0 100 60"><path d="M50 10 L50 34" stroke-width="4"/><circle cx="50" cy="46" r="3" fill="#57c4ff"/><path d="M28 52 a24 24 0 0 1 44 0" stroke-dasharray="4 5"/></svg>
+          <h3>Overclaiming</h3><div class="io"><span class="in">"one trial proves it eliminates hallucination"</span><span class="a">&rarr;</span><span class="out">one trial cannot carry that claim</span></div></div>
       </div>
-      <div class="metrics">
-        <div class="metric reveal r4">
-          <div class="num">150/150 <small>· 0/150</small></div>
-          <div class="what">Retraction recall / false positives on Crossref gold labels</div>
-          <div class="src">data/eval/bench-retraction.json</div>
-        </div>
-        <div class="metric reveal r4">
-          <div class="num">0.944 <small>precision</small></div>
-          <div class="what">D1 on 240 Citation-Integrity cases (recall 0.215 — reported, not hidden)</div>
-          <div class="src">data/eval/bench-citation-integrity.json</div>
-        </div>
-        <div class="metric reveal r5">
-          <div class="num">0.551 <small>Recall@5</small></div>
-          <div class="what">BM25 evidence selection at full-paper scale — lead-5 baseline: 0.010</div>
-          <div class="src">data/eval/bench-bm25-gate.json</div>
-        </div>
-        <div class="metric reveal r5">
-          <div class="num">&minus;1 <small>gate</small></div>
-          <div class="what">The refutation gate measured HARMFUL (killed true positives) and was removed — the measurement ships</div>
-          <div class="src">data/eval/bench-refutation-full.json</div>
-        </div>
+      <div class="nums">
+        <div class="num reveal"><b>150/150</b><span>retracted papers caught, zero false alarms <i>bench-retraction.json</i></span></div>
+        <div class="num reveal r2"><b>0.944</b><span>precision on 240 expert-labelled citation cases <i>bench-citation-integrity.json</i></span></div>
+        <div class="num reveal r3"><b>16</b><span>checks — and every number above ships with the script that measured it</span></div>
       </div>
+      <div class="pg">3 / 3</div>
     </section>
 
   </div>
   <div class="deck-controls">← → to navigate</div>
 </div>
 <script>
-/* === STAGE SCALING: uniform scale, letterboxed, never reflowed === */
+/* === STAGE SCALING === */
 const stage = document.querySelector(".deck-stage");
 function fit() {
   const w = innerWidth, h = innerHeight;
-  const scale = Math.min(w / 1920, h / 1080);
-  stage.style.transform =
-    `translate(${(w - 1920 * scale) / 2}px, ${(h - 1080 * scale) / 2}px) scale(${scale})`;
+  const k = Math.min(w / 1920, h / 1080);
+  stage.style.transform = `translate(${(w - 1920 * k) / 2}px, ${(h - 1080 * k) / 2}px) scale(${k})`;
 }
 addEventListener("resize", fit); fit();
 
@@ -239,13 +215,13 @@ addEventListener("keydown", (e) => {
   if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") go(at + 1);
   if (e.key === "ArrowLeft" || e.key === "PageUp") go(at - 1);
 });
-let touchX = null;
-addEventListener("touchstart", (e) => (touchX = e.touches[0].clientX));
+let tx = null;
+addEventListener("touchstart", (e) => (tx = e.touches[0].clientX));
 addEventListener("touchend", (e) => {
-  if (touchX === null) return;
-  const dx = e.changedTouches[0].clientX - touchX;
+  if (tx === null) return;
+  const dx = e.changedTouches[0].clientX - tx;
   if (Math.abs(dx) > 40) go(at + (dx < 0 ? 1 : -1));
-  touchX = null;
+  tx = null;
 });
 </script>
 </body>
