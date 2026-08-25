@@ -546,3 +546,6 @@ button { font-family: var(--sans); cursor: pointer; }
 .sample-btn:hover { background: #F0F5FC; border-color: var(--link); color: var(--link-dark); }
 .lead-note { margin: calc(-1 * var(--s3)) 0 0; }
 .lead-note b { color: var(--ink); font-weight: 600; }
+
+/* The vocabulary in use, named beside its size. */
+.ro-note { font-weight: 400; color: var(--ink-3); }

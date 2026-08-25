@@ -740,7 +740,27 @@ $("clear-history").onclick = async () => {
   try {
     const status = await fetch("/api/status").then((r) => r.json());
     serverKey = Boolean(status.server_key);
-    $("ro-glossary").textContent = status.glossary_terms ? `${status.glossary_terms} terms` : "none loaded";
+    // Name the vocabulary, not just the count: "33 terms" on its own reads as a
+    // weak tool rather than an uninstalled glossary.
+    const terms = status.glossary_terms || 0;
+    const named = status.glossary_source;
+    const dd = $("ro-glossary");
+    if (!terms) {
+      dd.textContent = "none loaded";
+    } else if (status.glossary_kind === "example") {
+      dd.innerHTML = `${terms} terms <span class="ro-note">example set</span>`;
+    } else {
+      dd.innerHTML = `${terms.toLocaleString()} terms` + (named ? ` <span class="ro-note">${esc(named)}</span>` : "");
+    }
+    // The footer may only credit a glossary the run actually used.
+    const credit = $("foot-credit");
+    if (credit) {
+      credit.textContent = named
+        ? `Terminology is checked against the ${named}.`
+        : status.glossary_kind === "example"
+          ? "Terminology is checked against the bundled example vocabulary — drop a curated glossary at data/glossary.json to use a real one."
+          : "";
+    }
     $("foot-version").textContent = status.version ? `v${status.version}` : "";
   } catch {
     $("ro-glossary").textContent = "unreachable";

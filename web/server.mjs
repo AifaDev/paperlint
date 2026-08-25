@@ -45,10 +45,12 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"))
 // PAPERLINT_GLOSSARY overrides both. See scripts/glossary-source.mjs.
 let glossary = [];
 let glossarySource = null;
+let glossaryKind = "none";
 try {
   const loaded = loadGlossary(ROOT);
   glossary = toMatcherTerms(toSeedTerms(loaded.entries), new Set());
   glossarySource = loaded.source;
+  glossaryKind = loaded.reason;
   console.log(`Glossary: ${loaded.label}`);
   if (loaded.attribution) console.log(`  ${loaded.attribution}`);
 } catch (err) {
@@ -174,7 +176,7 @@ function layerOf(finding) {
  */
 const CHECKS = [
   { id: "glossary-term", layer: "glossary", label: "Glossary term",
-    about: "Flags a phrase that nearly matches a canonical term from the ICAIRE AI Glossary. Abstains when the phrase could mean two different terms.",
+    about: "Flags a phrase that nearly matches a canonical term in the loaded glossary. Abstains when the phrase could mean two different terms.",
     group: "Terminology",
     example: "\"kernel support machine\" → \"Kernel Support Vector Machine (KSVM)\"" },
   { id: "citation-unresolved", layer: "citations", label: "Unresolved DOI or arXiv ID",
@@ -390,6 +392,7 @@ const server = http.createServer(async (req, res) => {
       version: pkg.version,
       glossary_terms: glossary.length,
       glossary_source: glossarySource,
+      glossary_kind: glossaryKind,
       server_key: Boolean(process.env.GROQ_API_KEY),
       model_default: DEFAULT_MODEL,
       base_url_default: DEFAULT_BASE_URL,
