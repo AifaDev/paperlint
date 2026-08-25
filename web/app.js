@@ -254,26 +254,52 @@ function render(data, fresh) {
   $("results-title").textContent =
     data.source && data.source.filename ? data.source.filename : "What we found";
 
-  /* The one fact first, in a sentence. */
+  /* --- the overview: how bad, how much ran, and all 16 at a glance ------- */
   const ran = checks.filter((x) => x.status === "ran");
-  const firing = checks.filter((x) => x.count > 0);
   const needKey = checks.filter((x) => x.status === "inactive");
-  const total = checks.length;
-  const summary = findings.length === 0
-    ? `No issues found. All ${ran.length} of the checks that ran came back clean.`
-    : `${plural(findings.length, "issue", "issues")} found, by ${plural(firing.length, "of the checks", "of the checks")} that ran.`;
-  const detail = needKey.length
-    ? `${ran.length} of the ${total} checks ran. The other ${needKey.length} need an API key and were not performed.`
-    : `All ${total} checks ran.`;
+  const withIssues = checks.filter((x) => x.count > 0);
+  const bySev = { 0: 0, 2: 0, 4: 0 };
+  for (const f of findings) bySev[magOf(f)] += 1;
+
+  $("ov-count").textContent = findings.length;
+  $("ov-count").classList.toggle("is-clean", findings.length === 0);
+  $("ov-label").textContent = findings.length === 1 ? "issue found" : "issues found";
+
+  // Severity bar. Zero-width segments are omitted so the bar never lies.
+  const sevSegs = [[0, "seg-major", "major"], [2, "seg-mod", "moderate"], [4, "seg-minor", "minor"]]
+    .filter(([m]) => bySev[m] > 0);
+  $("sev-bar").innerHTML = findings.length
+    ? sevSegs.map(([m, cls, word]) =>
+        `<span class="${cls}" style="width:${(bySev[m] / findings.length) * 100}%" title="${bySev[m]} ${word}"></span>`).join("")
+    : `<span class="seg-ran" style="width:100%" title="no issues"></span>`;
+
+  // How much of the tool actually ran.
+  $("run-bar").innerHTML =
+    `<span class="seg-ran" style="width:${(ran.length / checks.length) * 100}%" title="${ran.length} ran"></span>` +
+    `<span class="seg-idle" style="width:${(needKey.length / checks.length) * 100}%" title="${needKey.length} not run"></span>`;
+
+  $("ov-legend").innerHTML = findings.length
+    ? `<b>${bySev[0]}</b> major · <b>${bySev[2]}</b> moderate · <b>${bySev[4]}</b> minor — ` +
+      `found by <b>${withIssues.length}</b> of the <b>${ran.length}</b> checks that ran` +
+      (needKey.length ? `. <b>${needKey.length}</b> did not run (no API key).` : ".")
+    : `<b>${ran.length}</b> checks ran and every one came back clean` +
+      (needKey.length ? `. <b>${needKey.length}</b> did not run (no API key).` : ".");
+
+  // One square per check: the state of the whole tool in a single glance.
+  $("ov-grid").innerHTML = checks.map((c) => {
+    const st = c.count > 0 ? "st-bad" : c.status === "ran" ? "st-ok" : "st-idle";
+    const word = c.count > 0 ? `${plural(c.count, "issue", "issues")}` : c.status === "ran" ? "clean" : "not run";
+    return `<span class="ov-cell ${st}" title="${esc(c.label)} — ${esc(word)}"></span>`;
+  }).join("");
+
   const words = (c.words ?? 0).toLocaleString();
   const ids = c.identifiers ?? 0;
   const facts = `${words} words · ${(r.detected_language || "?").toUpperCase()}` +
     (ids ? ` · ${plural(ids, "DOI or arXiv ID", "DOIs and arXiv IDs")} looked up` : "") +
     (c.ai_calls ? ` · ${plural(c.ai_calls, "AI call", "AI calls")}` : "");
-  $("summary").innerHTML =
-    esc(summary) +
-    `<span class="muted">${esc(detail)}</span>` +
-    `<span class="facts">${esc(facts)}</span>`;
+  $("results-title").textContent =
+    data.source && data.source.filename ? data.source.filename : "What we found";
+  $("head-facts").textContent = facts;
 
   $("ramp-text").innerHTML = `<span>Dot size = severity</span>` +
     [0, 2, 4].map((m) => {
@@ -338,7 +364,6 @@ function fireReveal() {
 function checkRow(check, findings, index) {
   const mine = findings.filter((f) => f.check === check.id);
   const state = stateWords(check);
-  const tone = check.count > 0 ? "" : check.status === "ran" ? " is-clean" : " is-idle";
   const expandable = mine.length > 0;
   const id = `issues-${check.id}`;
   return (
@@ -347,7 +372,6 @@ function checkRow(check, findings, index) {
       ? `<button class="check-toggle" type="button" aria-expanded="false" aria-controls="${id}"` +
         ` aria-label="Show the ${plural(mine.length, "issue", "issues")} from ${esc(check.label)}"></button>`
       : "") +
-    stateMark(check) +
     `<span class="check-body">` +
       `<span class="check-name">${esc(check.label)}</span>` +
       (check.ai ? `<span class="ai-tag">AI</span>` : "") +
@@ -358,7 +382,7 @@ function checkRow(check, findings, index) {
         : "") +
       `<span class="check-about">${esc(check.about)}</span>` +
     `</span>` +
-    `<span class="check-state${tone}">${esc(state)}</span>` +
+    `<span class="pill ${pillClass(check)}">${esc(state)}</span>` +
     `<span class="check-count">${check.gate ? "\u2014" : check.count}</span>` +
     (expandable
       ? `<svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`
@@ -368,7 +392,9 @@ function checkRow(check, findings, index) {
   );
 }
 
-/* Checks grouped by what they examine, each group headed and counted. */
+/* Checks grouped by what they examine. Each group is its own card with a
+   colour that states what happened inside it — and the same thing in words,
+   because colour alone is never allowed to carry a state. */
 function renderGroups(checks, findings) {
   const order = [];
   const byGroup = new Map();
@@ -380,23 +406,39 @@ function renderGroups(checks, findings) {
   let n = 0;
   return order.map((g) => {
     const rows = byGroup.get(g);
-    const issues = rows.reduce((sum, c) => sum + c.count, 0);
-    const needKey = rows.every((c) => c.status === "inactive");
-    const note = needKey
-      ? `${plural(rows.length, "check", "checks")} \u00b7 not run`
-      : `${plural(rows.length, "check", "checks")} \u00b7 ${issues ? plural(issues, "issue", "issues") : "clean"}`;
-    return `<h3 class="group-head">${esc(g)}<span>${note}</span></h3>` +
-      `<ol class="checks">${rows.map((c) => checkRow(c, findings, n++)).join("")}</ol>`;
+    const issues = rows.reduce((sum, x) => sum + x.count, 0);
+    const notRun = rows.every((x) => x.status === "inactive");
+    const cls = issues ? "has-issues" : notRun ? "not-run" : "all-clean";
+    const pill = issues
+      ? `<span class="pill p-bad">${plural(issues, "issue", "issues")}</span>`
+      : notRun
+        ? `<span class="pill p-idle">Not run</span>`
+        : `<span class="pill p-ok">All clear</span>`;
+    return `<section class="group-card ${cls}">` +
+      `<div class="group-card-head">` +
+        `<h3>${esc(g)}</h3>` +
+        `<div class="g-meta"><span class="g-count">${plural(rows.length, "check", "checks")}</span>${pill}</div>` +
+      `</div>` +
+      `<ol class="checks">${rows.map((x) => checkRow(x, findings, n++)).join("")}</ol>` +
+      `</section>`;
   }).join("");
+}
+
+/* Colour follows the word, never replaces it. */
+function pillClass(check) {
+  if (check.count > 0) return "p-bad";
+  if (check.status === "ran") return "p-ok";
+  if (check.status === "abstained") return "p-warn";
+  return "p-idle";
 }
 
 /* Plain words for every state — never a colour or an icon alone. */
 function stateWords(check) {
-  if (check.gate) return check.status === "skipped" ? `stopped the run — ${check.reason}` : "passed — English";
-  if (check.status === "inactive") return "needs an API key";
-  if (check.status === "skipped") return check.reason ? `not run — ${check.reason}` : "not run";
-  if (check.status === "abstained") return check.reason ? `nothing to check — ${check.reason}` : "nothing to check";
-  return check.count === 0 ? "clean" : plural(check.count, "issue", "issues");
+  if (check.gate) return check.status === "skipped" ? "Stopped the run" : "Passed";
+  if (check.status === "inactive") return "Needs a key";
+  if (check.status === "skipped") return "Not run";
+  if (check.status === "abstained") return "Nothing to check";
+  return check.count === 0 ? "Clean" : plural(check.count, "issue", "issues");
 }
 
 function stateMark(check) {

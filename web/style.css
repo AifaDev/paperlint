@@ -32,6 +32,12 @@
   --sev-minor:  #626B76;
   --clean:      #2C6E49;   /* 5.3:1 */
 
+  /* State pairs. Every one is used WITH a word, never instead of it. */
+  --ok-bg:   #E7F4EC;  --ok-fg:   #1B6B44;  --ok-bd:   #A9D9C0;
+  --bad-bg:  #FDECE9;  --bad-fg:  #A32316;  --bad-bd:  #F2B6AC;
+  --warn-bg: #FFF4E2;  --warn-fg: #8A5A0F;  --warn-bd: #EBCF9B;
+  --idle-bg: #F1F3F5;  --idle-fg: #5B646F;  --idle-bd: #DCE1E6;
+
   --sans: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --mono: "Spline Sans Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
@@ -207,7 +213,7 @@ button { font-family: var(--sans); cursor: pointer; }
 /* --- the checks table ----------------------------------------------------- */
 /* A real table with labelled columns: nobody should have to infer what a
    column of numbers means. */
-.checks-table { margin-top: var(--s5); border: 1px solid var(--rule); }
+
 .col-head {
   display: grid; grid-template-columns: 30px 1fr 190px 62px 20px;
   gap: var(--s4); align-items: center;
@@ -217,19 +223,13 @@ button { font-family: var(--sans); cursor: pointer; }
 }
 .col-head .c-result, .col-head .c-count { text-align: right; }
 
-.group-head {
-  display: flex; align-items: baseline; justify-content: space-between; gap: var(--s4);
-  padding: var(--s3) var(--s4);
-  background: var(--paper-2); border-bottom: 1px solid var(--rule);
-  font: 600 11px/1 var(--sans); letter-spacing: .09em; text-transform: uppercase; color: var(--ink);
-}
-.group-head span { font: 400 12px/1 var(--sans); letter-spacing: 0; text-transform: none; color: var(--ink-2); }
+
 .checks { list-style: none; margin: 0; padding: 0; }
 
 .check {
   position: relative;
-  display: grid; grid-template-columns: 30px 1fr 190px 62px 20px;
-  gap: var(--s4); align-items: start;
+  display: grid; grid-template-columns: 1fr auto auto 18px;
+  gap: var(--s3) var(--s4); align-items: center;
   padding: var(--s3) var(--s4);
   border-bottom: 1px solid var(--rule);
 }
@@ -390,6 +390,98 @@ button { font-family: var(--sans); cursor: pointer; }
   }
 }
 
+
+/* =============================================================================
+   OVERVIEW — the whole run in one card, before any list.
+   Three visual answers: how bad, how much ran, and the state of all 16 at once.
+   ========================================================================== */
+.overview {
+  display: grid; grid-template-columns: auto 1fr auto;
+  gap: var(--s6); align-items: center;
+  padding: var(--s5); margin-bottom: var(--s5);
+  border: 1px solid var(--rule-2); border-radius: 10px;
+  background: linear-gradient(180deg, #FFFFFF, var(--paper-2));
+}
+.ov-score { text-align: center; padding-right: var(--s6); border-right: 1px solid var(--rule); }
+.ov-num {
+  font: 700 56px/1 var(--sans); letter-spacing: -0.04em; color: var(--sev-major);
+  font-variant-numeric: tabular-nums;
+}
+.ov-num.is-clean { color: var(--clean); }
+.ov-label { margin-top: 4px; font: 500 13px/1.3 var(--sans); color: var(--ink-2); max-width: 12ch; }
+
+.ov-bars { display: grid; gap: var(--s3); min-width: 0; }
+.ov-row { display: grid; grid-template-columns: 92px 1fr; gap: var(--s4); align-items: center; }
+.ov-key { font: 600 10px/1 var(--sans); letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3); }
+.bar { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: var(--idle-bg); }
+.bar span { display: block; height: 100%; }
+.bar .seg-major { background: var(--sev-major); }
+.bar .seg-mod   { background: #D08A24; }
+.bar .seg-minor { background: #98A2AE; }
+.bar .seg-ran   { background: var(--clean); }
+.bar .seg-idle  { background: #C8CFD7; }
+.ov-legend { margin: 2px 0 0; grid-column: 1 / -1; font: 400 12px/1.5 var(--sans); color: var(--ink-2); }
+.ov-legend b { font-weight: 600; color: var(--ink); }
+
+.ov-grid-wrap { display: grid; gap: var(--s2); justify-items: start; padding-left: var(--s6); border-left: 1px solid var(--rule); }
+.ov-grid { display: grid; grid-template-columns: repeat(8, 16px); gap: 5px; }
+.ov-cell { width: 16px; height: 16px; border-radius: 4px; border: 1px solid transparent; }
+.ov-cell.st-bad  { background: var(--sev-major); }
+.ov-cell.st-ok   { background: var(--clean); }
+.ov-cell.st-idle { background: #FFFFFF; border-color: var(--rule-2); border-style: dashed; }
+.ov-cellkey { display: flex; gap: var(--s3); flex-wrap: wrap; font: 400 11px/1 var(--sans); color: var(--ink-2); }
+.ov-cellkey span { display: inline-flex; align-items: center; gap: 5px; }
+.ov-cellkey i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.ov-cellkey i.st-bad { background: var(--sev-major); }
+.ov-cellkey i.st-ok { background: var(--clean); }
+.ov-cellkey i.st-idle { background: #fff; border: 1px dashed var(--rule-2); }
+
+/* =============================================================================
+   GROUP CARDS — real separation, and a colour that says what happened.
+   ========================================================================== */
+.group-card {
+  border: 1px solid var(--rule-2); border-radius: 10px;
+  background: var(--paper); overflow: hidden;
+  margin-bottom: var(--s4);
+}
+.group-card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--rule);
+  border-left: 4px solid var(--idle-bd);
+  background: var(--paper-2);
+}
+.group-card.has-issues .group-card-head { border-left-color: var(--sev-major); background: var(--bad-bg); }
+.group-card.all-clean  .group-card-head { border-left-color: var(--clean);     background: var(--ok-bg); }
+.group-card.not-run    .group-card-head { border-left-color: var(--idle-bd);   background: var(--idle-bg); }
+.group-card-head h3 { font: 600 15px/1.2 var(--sans); letter-spacing: -0.005em; color: var(--ink); }
+.group-card-head .g-meta { display: flex; align-items: center; gap: var(--s3); }
+.group-card-head .g-count { font: 400 12px/1 var(--sans); color: var(--ink-2); }
+.checks { list-style: none; margin: 0; padding: 0; }
+
+/* --- status pill: colour AND a word ---------------------------------------- */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 99px;
+  border: 1px solid var(--idle-bd); background: var(--idle-bg); color: var(--idle-fg);
+  font: 600 12px/1.35 var(--sans); white-space: nowrap;
+}
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.p-bad  { background: var(--bad-bg);  color: var(--bad-fg);  border-color: var(--bad-bd); }
+.pill.p-ok   { background: var(--ok-bg);   color: var(--ok-fg);   border-color: var(--ok-bd); }
+.pill.p-idle { background: var(--idle-bg); color: var(--idle-fg); border-color: var(--idle-bd); }
+.pill.p-idle::before { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
+.pill.p-warn { background: var(--warn-bg); color: var(--warn-fg); border-color: var(--warn-bd); }
+
+.check-name { font: 600 14.5px/1.35 var(--sans); color: var(--ink); }
+.check-about { display: block; margin-top: 3px; font: 400 13px/1.45 var(--sans); color: var(--ink-2); max-width: 74ch; }
+.check-count {
+  font: 700 17px/1 var(--sans); text-align: right; min-width: 1.6ch;
+  color: var(--ink-3); font-variant-numeric: tabular-nums;
+}
+.check.has-issues .check-count { color: var(--sev-major); }
+.check-body { grid-column: 1; min-width: 0; }
+
 /* --- narrow --------------------------------------------------------------- */
 @media (max-width: 900px) {
   main { padding: var(--s4); }
@@ -397,16 +489,38 @@ button { font-family: var(--sans); cursor: pointer; }
   .mast-inner, .steps { padding-inline: var(--s4); }
   .steps li { font-size: 12px; padding: var(--s3); gap: var(--s2); }
   .steps li .n { width: 19px; height: 19px; font-size: 10px; }
-  .summary { font-size: 18px; }
   .plate-body { grid-template-columns: 1fr; }
   .object-card { position: static; }
   .field-row { grid-template-columns: 1fr; gap: var(--s2); }
-  .col-head { display: none; }
-  .check { grid-template-columns: 26px 1fr auto; row-gap: var(--s2); }
-  .check-state { grid-column: 2 / 3; text-align: left; }
-  .check-count { grid-column: 3 / 4; }
+
+  /* The overview stacks; its dividing rules become horizontal. */
+  .overview { grid-template-columns: 1fr; gap: var(--s4); padding: var(--s4); }
+  .ov-score { display: flex; align-items: baseline; gap: var(--s3); text-align: left;
+    padding: 0 0 var(--s4) 0; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .ov-num { font-size: 40px; }
+  .ov-label { max-width: none; margin-top: 0; }
+  .ov-grid-wrap { padding-left: 0; padding-top: var(--s4); border-left: 0; border-top: 1px solid var(--rule); }
+  .ov-row { grid-template-columns: 78px 1fr; }
+
+  /* The row stacks: the check and its description own the full width, the
+     verdict and count sit together beneath. */
+  .check { grid-template-columns: 1fr auto; row-gap: var(--s2); }
+  .check-body { grid-column: 1 / -1; }
+  .check .pill { grid-column: 1; justify-self: start; }
+  .check-count { grid-column: 2; justify-self: end; }
   .chev, .chev-gap { display: none; }
+
+  .group-card-head { flex-wrap: wrap; }
   .info .tip { max-width: 240px; left: auto; right: 0; }
   .manuscript { max-height: 460px; padding: var(--s4); }
   .foot { padding: var(--s5) var(--s4) var(--s7); }
+  /* In column direction a flex-basis is a HEIGHT, so the 400px basis was
+     forcing a dead gap above the button. */
+  .notice { flex-direction: column; align-items: stretch; }
+  .notice > div { flex: 0 1 auto; }
+  .notice .ghost { align-self: flex-start; }
+}
+@media (max-width: 560px) {
+  .ov-grid { grid-template-columns: repeat(8, 14px); }
+  .ov-cell { width: 14px; height: 14px; }
 }

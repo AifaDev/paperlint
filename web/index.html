@@ -175,10 +175,38 @@
 
     <div class="panel-head">
       <h2 id="results-title">What we found</h2>
-      <span class="head-note">Tap any <span class="info-inline" aria-hidden="true">i</span> to see what that check looks for.</span>
+      <span class="head-note" id="head-facts"></span>
     </div>
 
-    <p id="summary" class="summary" aria-live="polite"></p>
+    <!-- At-a-glance: the whole run in one card before any list. -->
+    <section class="overview">
+      <div class="ov-score">
+        <div class="ov-num" id="ov-count">0</div>
+        <div class="ov-label" id="ov-label">issues found</div>
+      </div>
+
+      <div class="ov-bars">
+        <div class="ov-row">
+          <span class="ov-key">Severity</span>
+          <div class="bar" id="sev-bar"></div>
+        </div>
+        <div class="ov-row">
+          <span class="ov-key">Checks run</span>
+          <div class="bar" id="run-bar"></div>
+        </div>
+        <p class="ov-legend" id="ov-legend"></p>
+      </div>
+
+      <div class="ov-grid-wrap">
+        <span class="ov-key">All 16 checks</span>
+        <div class="ov-grid" id="ov-grid" role="img" aria-label="Status of all 16 checks"></div>
+        <div class="ov-cellkey" aria-hidden="true">
+          <span><i class="st-bad"></i>found something</span>
+          <span><i class="st-ok"></i>clean</span>
+          <span><i class="st-idle"></i>not run</span>
+        </div>
+      </div>
+    </section>
 
     <div id="ai-gap" class="notice" hidden>
       <div>
@@ -191,16 +219,8 @@
       </div>
       <button id="open-key-2" class="ghost" type="button">Add a key and re-run</button>
     </div>
-    <div class="checks-table">
-      <div class="col-head" aria-hidden="true">
-        <span></span>
-        <span class="c-check">Check &amp; what it looks for</span>
-        <span class="c-result">Result</span>
-        <span class="c-count">Issues</span>
-        <span></span>
-      </div>
-      <div id="checks-body"></div>
-    </div>
+
+    <div id="checks-body"></div>
 
     <div class="stepnav">
       <button id="to-text" class="primary" type="button">
