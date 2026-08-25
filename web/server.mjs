@@ -128,15 +128,33 @@ const LAYERS = [
   ["d4_overclaim", "D4 · overclaiming"],
 ];
 
+/** Check id -> layer. Routes on the finding's own `check` field; the old
+ *  regex over message_en is gone, along with the rewording hazard it carried. */
+const LAYER_OF_CHECK = {
+  "glossary-term": "glossary",
+  "citation-unresolved": "citations",
+  "citation-mismatch": "citations",
+  "citation-retracted": "retraction",
+  "cited-not-listed": "references",
+  "listed-not-cited": "references",
+  "duplicate-reference": "references",
+  "reference-missing-year": "references",
+  "float-never-referenced": "references",
+  "float-missing": "references",
+  "summary-drift": "consistency",
+  "claim-vs-source": "d1_claim_source",
+  "contradiction": "d2_contradiction",
+  "overclaim": "d4_overclaim",
+  "methodology": "d3_methodology",
+};
+
 function layerOf(finding) {
+  const byCheck = LAYER_OF_CHECK[finding.check];
+  if (byCheck) return byCheck;
+  // Historical records written before findings carried a check id still open.
   if (finding.category === "glossary") return "glossary";
   if (finding.category === "reference") return "references";
   if (finding.category === "consistency") return "consistency";
-  if (finding.category === "citation") {
-    // Keys off the retraction message template — admittedly the weakest joint
-    // here; a structured `kind` on citation findings is the clean fix.
-    return /\bwas (RETRACTED|WITHDRAWN|REMOVED|PARTIAL RETRACTION)\b/.test(finding.message_en) ? "retraction" : "citations";
-  }
   if (finding.category === "claim") {
     const ref = String(finding.source_ref ?? "");
     if (ref === "contradiction") return "d2_contradiction";
@@ -145,6 +163,73 @@ function layerOf(finding) {
     return "d1_claim_source";
   }
   return "citations";
+}
+
+/**
+ * The individual checks, which is what a user actually recognises: "did anyone
+ * cite a retracted paper" is a question, "the citation layer" is not. Twelve
+ * run with no model; four need one. The LANGUAGE row is a gate rather than a
+ * check — it can only ever skip the run, never report a finding — and it says
+ * so, because a row that cannot fire must not imply that it might.
+ */
+const CHECKS = [
+  { id: "glossary-term", layer: "glossary", label: "Glossary term",
+    about: "Flags a phrase that nearly matches a canonical term from the ICAIRE AI Glossary. Abstains when the phrase could mean two different terms." },
+  { id: "citation-unresolved", layer: "citations", label: "Unresolved DOI or arXiv ID",
+    about: "Looks up every identifier in Crossref, DataCite and doi.org. Flags it only when all of them disagree — a timeout is never treated as a fake." },
+  { id: "citation-mismatch", layer: "citations", label: "Citation points elsewhere",
+    about: "The identifier resolves, but the title, authors or year next to it in your text do not match the work it actually points to." },
+  { id: "citation-retracted", layer: "retraction", label: "Retracted source",
+    about: "Reads the retraction notice on the cited work. Corrections and errata are not flagged — only an amended or withdrawn paper is." },
+  { id: "cited-not-listed", layer: "references", label: "Cited but not listed",
+    about: "A bracketed number appears in your prose but has no matching entry in the reference list." },
+  { id: "listed-not-cited", layer: "references", label: "Listed but never cited",
+    about: "A reference-list entry that no sentence anywhere cites. Editorial, not an error of fact." },
+  { id: "duplicate-reference", layer: "references", label: "Duplicate entry",
+    about: "The same work appears twice in the reference list, or one number is used for two different works." },
+  { id: "reference-missing-year", layer: "references", label: "Missing year",
+    about: "A reference with no year of publication. “In press”, “n.d.” and bare URLs are treated as legitimate." },
+  { id: "float-never-referenced", layer: "references", label: "Figure nothing points at",
+    about: "A figure or table has a caption, but no sentence in the paper ever refers the reader to it." },
+  { id: "float-missing", layer: "references", label: "Missing figure",
+    about: "Your prose points at a figure or table that has no caption anywhere in the document." },
+  { id: "summary-drift", layer: "consistency", label: "Abstract drift",
+    about: "A number asserted in your abstract that the body never states. Rounding is fine; invention is not." },
+  { id: "language-gate", layer: null, label: "Language gate", gate: true,
+    about: "Detects the language from the text itself. A non-English draft is skipped with a stated reason rather than misjudged." },
+  { id: "claim-vs-source", layer: "d1_claim_source", label: "Claim vs. cited source", ai: true,
+    about: "Fetches the cited work and checks whether it actually supports the claim made next to it. Every answer must quote the source verbatim or it is dropped." },
+  { id: "contradiction", layer: "d2_contradiction", label: "Contradiction", ai: true,
+    about: "Two statements in the same paper that cannot both be true." },
+  { id: "methodology", layer: "d3_methodology", label: "Methodology", ai: true,
+    about: "Compares the method you describe against the results you report. Abstains entirely unless the paper has methods and results sections." },
+  { id: "overclaim", layer: "d4_overclaim", label: "Overclaiming", ai: true,
+    about: "A claim stated more strongly than the evidence in the paper supports." },
+];
+
+/** Per-check counts, with each check's state inherited from its layer so the
+ *  two views can never disagree about whether something ran. */
+function checkBreakdown(result, layers) {
+  const counts = {};
+  for (const finding of result.findings ?? []) {
+    const id = finding.check || null;
+    if (id) counts[id] = (counts[id] ?? 0) + 1;
+  }
+  const byLayer = Object.fromEntries(layers.map((l) => [l.id, l]));
+  return CHECKS.map((check) => {
+    const entry = { id: check.id, label: check.label, about: check.about, count: counts[check.id] ?? 0 };
+    if (check.ai) entry.ai = true;
+    if (check.gate) {
+      entry.gate = true;
+      entry.status = result.skipped_reason ? "skipped" : "ran";
+      if (result.skipped_reason) entry.reason = result.skipped_reason;
+      return entry;
+    }
+    const layer = byLayer[check.layer];
+    entry.status = layer ? layer.status : "ran";
+    if (layer && layer.reason) entry.reason = layer.reason;
+    return entry;
+  });
 }
 
 function layerBreakdown(result, modelActive) {
@@ -205,7 +290,11 @@ const STATIC = {
   "/": ["index.html", "text/html; charset=utf-8"],
   "/app.js": ["app.js", "text/javascript; charset=utf-8"],
   "/style.css": ["style.css", "text/css; charset=utf-8"],
+  "/fonts.css": ["fonts.css", "text/css; charset=utf-8"],
 };
+
+/** The slide deck explaining each check, served from the repo's slides/ dir. */
+const SLIDES = path.join(ROOT, "slides", "index.html");
 
 function json(res, code, body) {
   res.writeHead(code, { "content-type": "application/json" });
@@ -231,6 +320,28 @@ function readBody(req, res, limit, onDone) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
+
+  if (req.method === "GET" && (url.pathname === "/slides" || url.pathname === "/slides/")) {
+    if (!fs.existsSync(SLIDES)) {
+      res.writeHead(404, { "content-type": "text/plain" });
+      res.end("The slide deck is not present in this checkout (slides/index.html).");
+      return;
+    }
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+    res.end(fs.readFileSync(SLIDES));
+    return;
+  }
+
+  // Self-hosted faces. The path is matched against a strict pattern rather than
+  // joined from the request, so nothing outside web/fonts/ is reachable.
+  const font = url.pathname.match(/^\/fonts\/([A-Za-z0-9_-]+\.woff2)$/);
+  if (req.method === "GET" && font) {
+    const file = path.join(here, "fonts", font[1]);
+    if (!fs.existsSync(file)) { res.writeHead(404).end("not found"); return; }
+    res.writeHead(200, { "content-type": "font/woff2", "cache-control": "public, max-age=604800" });
+    res.end(fs.readFileSync(file));
+    return;
+  }
 
   if (req.method === "GET" && STATIC[url.pathname]) {
     const [file, type] = STATIC[url.pathname];
@@ -308,6 +419,7 @@ const server = http.createServer(async (req, res) => {
         );
         result.__hadBrief = Boolean(brief);
         const layers = layerBreakdown(result, modelActive);
+        const checks = checkBreakdown(result, layers);
         delete result.__hadBrief;
 
         const id = `${new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14)}-${(result.content_hash ?? "0000").slice(0, 4)}`;
@@ -319,11 +431,12 @@ const server = http.createServer(async (req, res) => {
           input: { text: String(text ?? ""), brief: brief || null, source: source ?? { kind: "paste", filename: null } },
           result,
           layers,
+          checks,
           ms: Date.now() - started,
           model: modelActive ? (model || process.env.REVIEW_AI_MODEL || DEFAULT_MODEL) : null,
         };
         appendHistory(record, apiKey);
-        json(res, 200, { ok: true, id, ms: record.ms, model: record.model, result, layers });
+        json(res, 200, { ok: true, id, ms: record.ms, model: record.model, result, layers, checks });
       } catch (error) {
         json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
       }

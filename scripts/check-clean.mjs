@@ -61,6 +61,12 @@ const ATTRIBUTION_FILES = new Set([
   "data/README.md",
   "src/matcher.ts",
   "slides/index.html",
+  // The portal credits the glossary where it is used: the footer, the glossary
+  // check's own description, and the product record that makes the credit a
+  // standing requirement.
+  "PRODUCT.md",
+  "web/index.html",
+  "web/server.mjs",
 ]);
 const ATTRIBUTABLE = new Set([FORBIDDEN[0]]); // the organisation name only
 

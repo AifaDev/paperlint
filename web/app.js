@@ -1,116 +1,173 @@
-/* paperlint frontend. Vanilla JS, no build step. */
+/* =============================================================================
+   paperlint — The Plate. Vanilla JS, no build step.
+
+   Three steps, one on screen at a time: hand over the paper, read what the 16
+   checks found, then step into the text. The world's rule carried into
+   behaviour: severity is diameter, and the same ramp is used by the legend, the
+   check rows and the canvas — so a big dot means the same thing everywhere.
+   ========================================================================== */
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 const KEY_STORE = "paperlint.api_key";
 const URL_STORE = "paperlint.base_url";
 const MODEL_STORE = "paperlint.model";
+
 let serverKey = false;
 let lastSource = { kind: "paste", filename: null };
+let current = null;      // { result, layers, checks, text }
+let selectedId = null;
 
-/* ------------------------------------------------------------------ tabs */
+/* --- severity ------------------------------------------------------------- */
+const MAG = { error: 0, high: 0, critical: 0, warning: 2, warn: 2, medium: 2, info: 4, low: 4, notice: 4 };
+const magOf = (f) => MAG[String(f.severity || "info").toLowerCase()] ?? 4;
+const radiusOf = (mag) => 7 - mag;          // mag 0 -> 7px, mag 2 -> 5px, mag 4 -> 3px
+const SEVERITY_WORD = { 0: "major", 2: "moderate", 4: "minor" };
+
+/* A tap anywhere else closes an open explanation. Registered once, not per render. */
+document.addEventListener("click", () => {
+  for (const b of document.querySelectorAll('.info[aria-expanded="true"]')) {
+    b.setAttribute("aria-expanded", "false");
+  }
+});
+
+/* --- steps ---------------------------------------------------------------- */
+const STEPS = ["compose", "results", "text"];
+let step = "compose";
+
+function goTo(next) {
+  step = next;
+  $("step-compose").hidden = next !== "compose";
+  $("step-results").hidden = next !== "results";
+  $("step-text").hidden = next !== "text";
+  STEPS.forEach((name, i) => {
+    const li = $(`step-${i + 1}`);
+    li.classList.toggle("on", name === next);
+    li.classList.toggle("done", STEPS.indexOf(next) > i);
+  });
+  $("new-scan").hidden = next === "compose";
+  window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+  if (next === "results") fireReveal();
+  if (next === "text") drawChart();
+}
+
+$("new-scan").onclick = () => goTo("compose");
+$("new-scan-2").onclick = () => goTo("compose");
+$("back-compose").onclick = () => goTo("compose");
+$("back-results").onclick = () => goTo("results");
+$("to-text").onclick = () => goTo("text");
+
+/* --- source tabs ---------------------------------------------------------- */
 function showTab(which) {
-  $("tab-paste").classList.toggle("active", which === "paste");
-  $("tab-upload").classList.toggle("active", which === "upload");
-  $("pane-paste").hidden = which !== "paste";
-  $("pane-upload").hidden = which !== "upload";
+  const paste = which === "paste";
+  $("tab-paste").classList.toggle("active", paste);
+  $("tab-upload").classList.toggle("active", !paste);
+  $("tab-paste").setAttribute("aria-selected", String(paste));
+  $("tab-upload").setAttribute("aria-selected", String(!paste));
+  $("pane-paste").hidden = !paste;
+  $("pane-upload").hidden = paste;
 }
 $("tab-paste").onclick = () => showTab("paste");
 $("tab-upload").onclick = () => showTab("upload");
 
-/* ------------------------------------------------------------------- key */
-function currentKey() {
-  return localStorage.getItem(KEY_STORE) || "";
-}
-/** The chosen endpoint: the dropdown, or the custom field when "Custom…". */
-function currentBaseUrl() {
-  const sel = $("provider").value;
-  return sel === "custom" ? $("base-url").value.trim() : sel;
-}
-function currentModel() {
-  return $("model").value.trim();
-}
+/* --- provider & key ------------------------------------------------------- */
+const currentKey = () => localStorage.getItem(KEY_STORE) || "";
+const currentBaseUrl = () => ($("provider").value === "custom" ? $("base-url").value.trim() : $("provider").value);
+const currentModel = () => $("model").value.trim();
 function providerLabel() {
-  const url = currentBaseUrl();
-  try {
-    return new URL(url).host;
-  } catch {
-    return "provider";
-  }
+  try { return new URL(currentBaseUrl()).host; } catch { return "provider"; }
 }
-function paintModelState() {
-  const pill = $("model-state");
-  if (currentKey()) {
-    pill.className = "pill on";
-    pill.textContent = `AI checks: on · ${providerLabel()}`;
-  } else if (serverKey) {
-    pill.className = "pill on";
-    pill.textContent = "AI checks: on (server key)";
-  } else {
-    pill.className = "pill off";
-    pill.textContent = "AI checks: off — 12 deterministic checks still run";
-  }
+function paintInstrument() {
+  const dd = $("ro-model");
+  const active = Boolean(currentKey()) || serverKey;
+  if (currentKey()) { dd.className = "on"; dd.textContent = "on · " + providerLabel(); }
+  else if (serverKey) { dd.className = "on"; dd.textContent = "on · server key"; }
+  else { dd.className = "off"; dd.textContent = "off — 12 of 16 checks"; }
+  const notice = $("ai-notice");
+  if (notice) notice.hidden = active;
 }
+
+/* Both nudges open the same panel and put the cursor in the key field, so the
+   suggestion and the means to act on it are never more than one click apart. */
+function openKeyPanel() {
+  $("key-panel").open = true;
+  $("key-panel").scrollIntoView({ behavior: "smooth", block: "center" });
+  setTimeout(() => $("key").focus(), 320);
+}
+$("open-key").onclick = openKeyPanel;
+$("open-key-2").onclick = () => { goTo("compose"); openKeyPanel(); };
+
 $("key").oninput = () => {
   const v = $("key").value.trim();
-  if (v) localStorage.setItem(KEY_STORE, v);
-  else localStorage.removeItem(KEY_STORE);
-  paintModelState();
+  if (v) localStorage.setItem(KEY_STORE, v); else localStorage.removeItem(KEY_STORE);
+  paintInstrument();
 };
 $("provider").onchange = () => {
   $("custom-row").hidden = $("provider").value !== "custom";
   localStorage.setItem(URL_STORE, $("provider").value);
-  paintModelState();
+  paintInstrument();
 };
-$("base-url").oninput = () => { localStorage.setItem(URL_STORE, "custom:" + $("base-url").value.trim()); paintModelState(); };
+$("base-url").oninput = () => {
+  localStorage.setItem(URL_STORE, "custom:" + $("base-url").value.trim());
+  paintInstrument();
+};
 $("model").oninput = () => localStorage.setItem(MODEL_STORE, $("model").value.trim());
 $("key-show").onclick = () => {
-  $("key").type = $("key").type === "password" ? "text" : "password";
+  const hidden = $("key").type === "password";
+  $("key").type = hidden ? "text" : "password";
+  $("key-show").textContent = hidden ? "Hide" : "Show";
 };
 $("key-clear").onclick = () => {
   localStorage.removeItem(KEY_STORE);
   $("key").value = "";
-  paintModelState();
+  paintInstrument();
 };
 $("key-test").onclick = async () => {
-  $("status").textContent = "Testing key…";
-  const res = await fetch("/api/key-check", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ key: currentKey(), baseUrl: currentBaseUrl() }),
-  }).then((r) => r.json());
-  $("status").textContent = res.ok ? "Key OK." : "Key failed: " + (res.error || "unknown");
+  $("status").textContent = "Testing the key…";
+  try {
+    const res = await fetch("/api/key-check", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key: currentKey(), baseUrl: currentBaseUrl() }),
+    }).then((r) => r.json());
+    $("status").textContent = res.ok
+      ? "Key works — the 4 AI checks will run."
+      : "That key was rejected: " + (res.error || "no reason given") + ". The 12 other checks still run.";
+  } catch (err) {
+    $("status").textContent = "Could not reach the provider — " + err.message;
+  }
 };
 
-/* ---------------------------------------------------------------- upload */
+/* --- upload --------------------------------------------------------------- */
 async function handleFile(file) {
-  $("drop-status").textContent = `Extracting ${file.name}…`;
+  $("drop-status").textContent = `Reading ${file.name}…`;
   try {
     const res = await fetch("/api/extract", {
       method: "POST",
-      headers: { "content-type": file.type || "application/octet-stream", "x-filename": encodeURIComponent(file.name) },
+      headers: {
+        "content-type": file.type || "application/octet-stream",
+        "x-filename": encodeURIComponent(file.name),
+      },
       body: file,
     }).then((r) => r.json());
     if (!res.ok) throw new Error(res.error);
     $("text").value = res.text;
     lastSource = { kind: res.kind, filename: res.filename };
     $("drop-status").textContent =
-      `Extracted ${res.words.toLocaleString()} words` +
+      `Got ${res.words.toLocaleString()} words` +
       (res.pages ? ` from ${res.pages} pages` : "") +
-      (res.truncated ? " (TRUNCATED at the 2 MB text ceiling)" : "") +
-      " — placed in the editor.";
+      (res.truncated ? " — cut off at the 2 MB limit" : "") +
+      ". Check it in the editor, then run the checks.";
     showTab("paste");
   } catch (err) {
-    $("drop-status").textContent = "Extraction failed: " + err.message;
+    $("drop-status").textContent = "Could not read that file — " + err.message;
   }
 }
 $("file").onchange = () => $("file").files[0] && handleFile($("file").files[0]);
 const drop = $("drop");
-drop.ondragover = (e) => {
-  e.preventDefault();
-  drop.classList.add("hot");
-};
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("hot"); };
 drop.ondragleave = () => drop.classList.remove("hot");
 drop.ondrop = (e) => {
   e.preventDefault();
@@ -118,7 +175,7 @@ drop.ondrop = (e) => {
   if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
 };
 
-/* ---------------------------------------------------------------- sample */
+/* --- sample --------------------------------------------------------------- */
 $("sample").onclick = () => {
   $("text").value = [
     "Introduction",
@@ -127,6 +184,7 @@ $("sample").onclick = () => {
     "Prior work on protein structure prediction (doi:10.1038/s41586-021-03819-2) and on attention-based",
     "sequence models (arXiv:1706.03762) informs the design. A further study (doi:10.9999/not-a-real-doi)",
     "reports similar gains. Our approach always outperforms every baseline in all configurations tested.",
+    "As shown in Figure 2, the margin widens with corpus size.",
     "",
     "References",
     "",
@@ -136,17 +194,21 @@ $("sample").onclick = () => {
   ].join("\n");
   $("brief").value = "Accuracy improved by 45% over the baseline.";
   lastSource = { kind: "paste", filename: null };
+  $("status").textContent = "Sample loaded — it trips several checks at once.";
 };
 
-/* ------------------------------------------------------------------- run */
+/* --- run ------------------------------------------------------------------ */
 $("run").onclick = async () => {
   const btn = $("run");
+  if (!$("text").value.trim()) {
+    $("status").textContent = "Add some text first, or press “Try a sample”.";
+    return;
+  }
   btn.disabled = true;
-  $("status").textContent = "Running…";
+  $("status").textContent = "Checking…";
   try {
     const res = await fetch("/api/review", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
+      method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({
         text: $("text").value,
         brief: $("brief").value || null,
@@ -157,136 +219,413 @@ $("run").onclick = async () => {
       }),
     }).then((r) => r.json());
     if (!res.ok) throw new Error(res.error);
-    render(res);
-    $("status").textContent = `Done in ${res.ms} ms` + (res.model ? ` · ${res.model}` : "");
+    render({ result: res.result, layers: res.layers, checks: res.checks, text: $("text").value, source: lastSource }, true);
+    $("status").textContent = "";
+    goTo("results");
     loadHistory();
   } catch (err) {
-    $("stats").innerHTML = '<div class="empty">' + esc(err.message) + "</div>";
-    $("layers").innerHTML = "";
-    $("status").textContent = "";
+    $("status").textContent = "The run failed — " + err.message;
   } finally {
     btn.disabled = false;
   }
 };
 
-/* ---------------------------------------------------------------- render */
-function render(data) {
+/* --- render --------------------------------------------------------------- */
+function render(data, fresh) {
+  current = data;
+  selectedId = null;
   const r = data.result;
   const c = r.counts || {};
+  const findings = r.findings || [];
+  const checks = data.checks || [];
 
+  /* Honest banners: an unchecked paper is not a clean one. */
   const banner = $("banner");
   if (r.skipped_reason) {
     banner.hidden = false;
-    banner.textContent =
-      "Skipped — " + r.skipped_reason + ". Nothing was checked and nothing is claimed: an unchecked document is not a clean one.";
+    banner.innerHTML = `<b>Nothing was checked.</b> ${esc(r.skipped_reason)}. We are not saying this paper is clean — we are saying we did not look.`;
   } else if (r.partial) {
     banner.hidden = false;
-    banner.textContent =
-      "PARTIAL RUN — a budget or rate ceiling stopped work. Dropped: " + (r.dropped || []).join("; ");
+    banner.innerHTML = `<b>This run stopped early.</b> A budget or rate limit cut it short, so some checks did not finish. Skipped: ${esc((r.dropped || []).join("; ") || "not recorded")}.`;
   } else {
     banner.hidden = true;
   }
 
-  $("stats").innerHTML = [
-    ["Language", (r.detected_language || "—").toUpperCase()],
-    ["Words", c.words ?? 0],
-    ["Findings", (r.findings || []).length],
-    ["Identifiers", c.identifiers ?? 0],
-    ["Unverified", c.citation_unverified ?? 0],
-    ["Model calls", c.ai_calls ?? 0],
-    ["Tokens in/out", `${c.ai_input_tokens ?? 0}/${c.ai_output_tokens ?? 0}`],
-  ]
-    .map(([k, v]) => `<div class="stat"><b>${esc(v)}</b><span>${esc(k)}</span></div>`)
-    .join("");
+  $("results-title").textContent =
+    data.source && data.source.filename ? data.source.filename : "What we found";
 
-  $("layers").innerHTML = (data.layers || [])
-    .map((layer) => {
-      const findings = (r.findings || []).filter((f) => findingLayer(f) === layer.id);
-      const state =
-        layer.status === "ran"
-          ? layer.count === 0
-            ? "ran — nothing found"
-            : ""
-          : layer.status + (layer.reason ? " — " + layer.reason : "");
-      const extra = layer.extra
-        ? " · " +
-          Object.entries(layer.extra)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(" · ")
-        : "";
-      return (
-        `<div class="layer"><div class="head">` +
-        `<span class="name">${esc(layer.label)}</span>` +
-        `<span class="state ${esc(layer.status)}">${esc(state)}${esc(extra)}</span>` +
-        `<span class="badge ${layer.count > 0 ? "hit" : ""}">${layer.count}</span>` +
-        `</div>` +
-        (findings.length
-          ? `<div class="body">` + findings.map(findingCard).join("") + `</div>`
-          : "") +
-        `</div>`
-      );
-    })
-    .join("");
+  /* The one fact first, in a sentence. */
+  const ran = checks.filter((x) => x.status === "ran");
+  const firing = checks.filter((x) => x.count > 0);
+  const needKey = checks.filter((x) => x.status === "inactive");
+  const total = checks.length;
+  const summary = findings.length === 0
+    ? `No issues found. All ${ran.length} of the checks that ran came back clean.`
+    : `${plural(findings.length, "issue", "issues")} found, by ${plural(firing.length, "of the checks", "of the checks")} that ran.`;
+  const detail = needKey.length
+    ? `${ran.length} of the ${total} checks ran. The other ${needKey.length} need an API key and were not performed.`
+    : `All ${total} checks ran.`;
+  const words = (c.words ?? 0).toLocaleString();
+  const ids = c.identifiers ?? 0;
+  const facts = `${words} words · ${(r.detected_language || "?").toUpperCase()}` +
+    (ids ? ` · ${plural(ids, "DOI or arXiv ID", "DOIs and arXiv IDs")} looked up` : "") +
+    (c.ai_calls ? ` · ${plural(c.ai_calls, "AI call", "AI calls")}` : "");
+  $("summary").innerHTML =
+    esc(summary) +
+    `<span class="muted">${esc(detail)}</span>` +
+    `<span class="facts">${esc(facts)}</span>`;
+
+  $("ramp-text").innerHTML = `<span>Dot size = severity</span>` +
+    [0, 2, 4].map((m) => {
+      const d = radiusOf(m) * 2;
+      return `<span class="item"><span class="dot" style="width:${d}px;height:${d}px"></span>${SEVERITY_WORD[m]}</span>`;
+    }).join("");
+
+  const det = checks.filter((x) => !x.ai);
+  const ai = checks.filter((x) => x.ai);
+  $("det-note").textContent = `${det.length} checks · no key needed`;
+  $("ai-note").textContent = ai.every((x) => x.status === "inactive")
+    ? `${ai.length} checks · not run`
+    : `${ai.length} checks`;
+  $("ai-gap").hidden = !ai.every((x) => x.status === "inactive");
+  $("checks-deterministic").innerHTML = det.map((x, i) => checkRow(x, findings, i)).join("");
+  $("checks-ai").innerHTML = ai.map((x, i) => checkRow(x, findings, i)).join("");
+
+  for (const badge of document.querySelectorAll(".info")) {
+    badge.onclick = (e) => {
+      e.stopPropagation();
+      const open = badge.getAttribute("aria-expanded") === "true";
+      for (const other of document.querySelectorAll(".info")) other.setAttribute("aria-expanded", "false");
+      badge.setAttribute("aria-expanded", String(!open));
+    };
+  }
+  for (const toggle of document.querySelectorAll(".check-toggle")) {
+    toggle.onclick = () => {
+      const open = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!open));
+      toggle.parentElement.querySelector(".issues").hidden = open;
+    };
+  }
+
+  $("object-card").hidden = true;
+  document.querySelector(".plate-body").classList.add("solo");
+  paintManuscript();
+  if (fresh) pendingReveal = true;
 }
 
-function findingLayer(f) {
-  if (f.category === "glossary") return "glossary";
-  if (f.category === "reference") return "references";
-  if (f.category === "consistency") return "consistency";
-  if (f.category === "citation")
-    return /\bwas (RETRACTED|WITHDRAWN|REMOVED|PARTIAL RETRACTION)\b/.test(f.message_en) ? "retraction" : "citations";
-  const ref = String(f.source_ref || "");
-  if (ref === "contradiction") return "d2_contradiction";
-  if (ref === "overclaim") return "d4_overclaim";
-  if (ref.startsWith("methodology:")) return "d3_methodology";
-  return "d1_claim_source";
+/* The staggered reveal is armed by render() but only ever fired once the step
+   is actually on screen: a CSS animation does not start inside a display:none
+   subtree, and with fill-mode `both` that used to pin every row at its
+   from-state — an invisible list of checks. It is also always disarmed on a
+   timer, so a dropped animationend can never leave content hidden. */
+let pendingReveal = false;
+let revealTimer = null;
+function fireReveal() {
+  if (!pendingReveal) return;
+  pendingReveal = false;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const lists = [$("checks-deterministic"), $("checks-ai")];
+  for (const list of lists) {
+    list.classList.remove("resolving");
+    void list.offsetWidth;
+    list.classList.add("resolving");
+  }
+  clearTimeout(revealTimer);
+  revealTimer = setTimeout(() => {
+    for (const list of lists) list.classList.remove("resolving");
+  }, 1200);
 }
 
-function findingCard(f) {
-  const doi = String(f.source_ref || "").match(/^doi:(.+)$/);
-  const link = doi ? ` · <a href="https://doi.org/${esc(doi[1])}" target="_blank" rel="noopener">${esc(doi[1])}</a>` : "";
-  const ev =
-    f.evidence && f.evidence.source_quote
-      ? `<div class="ev">Source: &ldquo;${esc(f.evidence.source_quote)}&rdquo;</div>`
-      : "";
+/* One check per row. The row is a grid on the <li>; the disclosure control is a
+   transparent button stretched across it (big target, valid markup) and the
+   info button is a SIBLING, never nested inside another button — nesting is
+   invalid HTML and the parser hoists it out, which silently collapsed this
+   grid and overprinted the state words on the count. */
+function checkRow(check, findings, index) {
+  const mine = findings.filter((f) => f.check === check.id);
+  const state = stateWords(check);
+  const expandable = mine.length > 0;
+  const id = `issues-${check.id}`;
   return (
-    `<div class="f ${esc(f.severity)}">` +
-    `<div class="tag">${esc(f.severity)}${f.decided_by ? " · " + esc(f.decided_by) : ""}${link}</div>` +
-    (f.quoted_span ? `<p>The text says <span class="quote">${esc(f.quoted_span)}</span></p>` : "") +
-    `<p>${esc(f.message_en)}</p>` +
-    ev +
-    `</div>`
+    `<li class="check${check.count > 0 ? " has-issues" : ""}" style="--i:${index}">` +
+    (expandable
+      ? `<button class="check-toggle" type="button" aria-expanded="false" aria-controls="${id}"` +
+        ` aria-label="Show the ${plural(mine.length, "issue", "issues")} from ${esc(check.label)}"></button>`
+      : "") +
+    stateMark(check) +
+    `<span class="check-name">${esc(check.label)}</span>` +
+    `<button class="info" type="button" aria-expanded="false"` +
+    ` aria-label="What does ${esc(check.label)} look for?">i` +
+    `<span class="tip" role="tooltip">${esc(check.about)}</span></button>` +
+    `<span class="check-state">${esc(state)}</span>` +
+    `<span class="check-count">${check.gate ? "\u2014" : check.count}</span>` +
+    (expandable
+      ? `<svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`
+      : `<span class="chev-gap"></span>`) +
+    `<ul class="issues" id="${id}" hidden>${mine.map((f) => issueRow(f)).join("")}</ul>` +
+    `</li>`
   );
 }
 
-/* --------------------------------------------------------------- history */
+/* Plain words for every state — never a colour or an icon alone. */
+function stateWords(check) {
+  if (check.gate) return check.status === "skipped" ? `stopped the run — ${check.reason}` : "passed — English";
+  if (check.status === "inactive") return "needs an API key";
+  if (check.status === "skipped") return check.reason ? `not run — ${check.reason}` : "not run";
+  if (check.status === "abstained") return check.reason ? `nothing to check — ${check.reason}` : "nothing to check";
+  return check.count === 0 ? "clean" : plural(check.count, "issue", "issues");
+}
+
+function stateMark(check) {
+  const s = 'fill="none" stroke="currentColor" stroke-width="1.1"';
+  if (check.count > 0)
+    return `<svg class="check-mark" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--amber)">
+      <circle cx="12" cy="12" r="9" ${s}/><circle cx="12" cy="12" r="3.6" fill="currentColor"/></svg>`;
+  if (check.status === "ran")
+    return `<svg class="check-mark" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--chalk-faint)">
+      <circle cx="12" cy="12" r="9" ${s}/></svg>`;
+  if (check.status === "abstained")
+    return `<svg class="check-mark" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--chalk-faint)">
+      <circle cx="12" cy="12" r="9" ${s} stroke-dasharray="2.5 3"/></svg>`;
+  if (check.status === "skipped")
+    return `<svg class="check-mark" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--chalk-faint)">
+      <circle cx="12" cy="12" r="9" ${s}/><path d="M6 18 18 6" ${s}/></svg>`;
+  return `<svg class="check-mark" viewBox="0 0 24 24" aria-hidden="true" style="color:var(--chalk-faint)">
+    <circle cx="12" cy="12" r="9" ${s} stroke-dasharray="1 4"/></svg>`;
+}
+
+function issueRow(f) {
+  const mag = magOf(f);
+  const d = radiusOf(mag) * 2;
+  const addr = addressOf(f);
+  const doi = String(f.source_ref || "").match(/^doi:(.+)$/);
+  const link = doi ? ` <a href="https://doi.org/${esc(doi[1])}" target="_blank" rel="noopener">open the DOI</a>` : "";
+  const wrote = f.quoted_span
+    ? `<p class="obj-quote">Your text says <b>&ldquo;${esc(f.quoted_span)}&rdquo;</b>` +
+      (f.suggestion ? ` — the canonical form is <span class="obj-sugg">${esc(f.suggestion)}</span>` : "") + `</p>`
+    : "";
+  const src = f.evidence && f.evidence.source_quote
+    ? `<p class="obj-quote">The source says <b>&ldquo;${esc(f.evidence.source_quote)}&rdquo;</b></p>` : "";
+  const why = f.evidence && f.evidence.reason ? `<p class="obj-msg">${esc(f.evidence.reason)}</p>` : "";
+  return (
+    `<li class="object" data-addr="${esc(addr)}">` +
+    `<span class="obj-mag"><span class="dot" style="width:${d}px;height:${d}px"></span></span>` +
+    `<div>` +
+    `<div class="obj-addr"><span>${esc(addr)}</span>` +
+    `<span class="sep">${esc(SEVERITY_WORD[mag])}</span>` +
+    `<span class="sep">${f.decided_by === "deterministic" ? "found by code" : "judged by the model"}</span>${link}</div>` +
+    `<p class="obj-msg">${esc(f.message_en)}</p>` + wrote + src + why +
+    `</div></li>`
+  );
+}
+
+/* A short, quotable address per issue: check number, then its ordinal. */
+function addressOf(f) {
+  if (!current) return "—";
+  const checks = current.checks || [];
+  const idx = checks.findIndex((c) => c.id === f.check);
+  const mine = (current.result.findings || []).filter((x) => x.check === f.check);
+  return `${String(idx + 1).padStart(2, "0")}.${mine.indexOf(f) + 1}`;
+}
+
+/* --- the manuscript, marked in place -------------------------------------- */
+function paintManuscript() {
+  if (!current) return;
+  const text = current.text || "";
+  const marks = (current.result.findings || [])
+    .filter((f) => Number.isInteger(f.span_start) && Number.isInteger(f.span_end) && f.span_end > f.span_start)
+    .sort((a, b) => b.span_start - a.span_start);
+
+  const pieces = [];
+  let cursor = text.length;
+  for (const f of marks) {
+    if (f.span_end > cursor) continue; // overlapping spans: first one wins
+    pieces.push(esc(text.slice(f.span_end, cursor)));
+    pieces.push(
+      `<mark data-addr="${esc(addressOf(f))}" tabindex="0" role="button">` +
+      esc(text.slice(f.span_start, f.span_end)) + `</mark>`,
+    );
+    cursor = f.span_start;
+  }
+  pieces.push(esc(text.slice(0, cursor)));
+  $("manuscript").innerHTML = pieces.reverse().join("") || '<span class="empty">Nothing to show.</span>';
+
+  for (const m of $("manuscript").querySelectorAll("mark")) {
+    const pick = () => selectObject(m.dataset.addr, false);
+    m.onclick = pick;
+    m.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } };
+  }
+}
+
+const findByAddress = (addr) => (current?.result.findings || []).find((f) => addressOf(f) === addr) || null;
+
+function selectObject(addr, scroll) {
+  selectedId = addr;
+  for (const m of $("manuscript").querySelectorAll("mark")) m.classList.toggle("sel", m.dataset.addr === addr);
+  const f = findByAddress(addr);
+  const card = $("object-card");
+  if (!f) { card.hidden = true; card.parentElement.classList.add("solo"); return; }
+  card.parentElement.classList.remove("solo");
+  const check = (current.checks || []).find((c) => c.id === f.check);
+  card.hidden = false;
+  card.innerHTML =
+    `<div class="obj-addr"><span>${esc(addr)}</span><span class="sep">${esc(check ? check.label : "")}</span></div>` +
+    `<p class="obj-msg">${esc(f.message_en)}</p>` +
+    (f.quoted_span ? `<p class="obj-quote">&ldquo;${esc(f.quoted_span)}&rdquo;</p>` : "");
+  if (scroll) {
+    const m = $("manuscript").querySelector(`mark[data-addr="${CSS.escape(addr)}"]`);
+    if (m) m.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+  drawChart();
+}
+
+/* --- the chart ------------------------------------------------------------ */
+let chartPoints = [];
+
+function drawChart() {
+  const canvas = $("chart");
+  if (!canvas || !current || $("step-text").hidden) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  const css = getComputedStyle(document.documentElement);
+  const chalk = css.getPropertyValue("--chalk").trim() || "#E9E5DA";
+  const faint = css.getPropertyValue("--chalk-faint").trim() || "#64707E";
+  const amber = css.getPropertyValue("--amber").trim() || "#DDA04A";
+  const coral = css.getPropertyValue("--coral").trim() || "#DD4A2C";
+
+  // Reserve the label gutter from the widest label actually drawn, so an axis
+  // name is ellipsised deliberately rather than clipped by the canvas edge.
+  ctx.font = '500 9px "Spline Sans Mono", monospace';
+  const rowsForWidth = (current.checks || []).filter((c) => c.count > 0);
+  const widest = rowsForWidth.reduce((m, c) => Math.max(m, ctx.measureText(c.label.toUpperCase()).width), 0);
+  const padL = Math.min(w * 0.42, Math.max(74, widest + 18));
+  const padR = 18, padT = 16, padB = 26;
+  const plotW = Math.max(10, w - padL - padR);
+  const plotH = Math.max(10, h - padT - padB);
+  const rows = (current.checks || []).filter((c) => c.count > 0);
+  const rowCount = rows.length || 1;
+  const rowH = plotH / rowCount;
+
+  ctx.lineWidth = 1;
+  ctx.font = '500 9px "Spline Sans Mono", monospace';
+  ctx.textBaseline = "middle";
+  for (let i = 0; i < rowCount; i += 1) {
+    const y = padT + rowH * (i + 0.5);
+    ctx.strokeStyle = "rgba(233,229,218,0.10)";
+    ctx.beginPath(); ctx.moveTo(padL, Math.round(y) + 0.5); ctx.lineTo(w - padR, Math.round(y) + 0.5); ctx.stroke();
+    ctx.fillStyle = faint;
+    ctx.textAlign = "right";
+    const name = rows[i] ? rows[i].label.toUpperCase() : "";
+    ctx.fillText(name.length > 22 ? name.slice(0, 21) + "…" : name, padL - 10, y);
+  }
+  ctx.textAlign = "center";
+  for (let p = 0; p <= 10; p += 1) {
+    const x = padL + (plotW * p) / 10;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(x) + 0.5, padT);
+    ctx.lineTo(Math.round(x) + 0.5, padT + plotH);
+    ctx.strokeStyle = p % 5 === 0 ? "rgba(233,229,218,0.18)" : "rgba(233,229,218,0.07)";
+    ctx.stroke();
+  }
+  ctx.fillStyle = faint;
+  ctx.fillText("start of paper", padL + plotW * 0.08, h - padB / 2);
+  ctx.fillText("end", padL + plotW * 0.96, h - padB / 2);
+
+  const textLen = Math.max(1, (current.text || "").length);
+  chartPoints = [];
+  const findings = (current.result.findings || []).slice().sort((a, b) => magOf(b) - magOf(a));
+  for (const f of findings) {
+    const li = rows.findIndex((c) => c.id === f.check);
+    if (li < 0) continue;
+    const pos = Number.isInteger(f.span_start) ? Math.min(1, f.span_start / textLen) : 0.5;
+    const x = padL + plotW * pos;
+    const y = padT + rowH * (li + 0.5);
+    const r = radiusOf(magOf(f));
+    const addr = addressOf(f);
+    const sel = addr === selectedId;
+
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = sel ? coral : chalk;
+    ctx.globalAlpha = sel ? 1 : 0.9;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    if (sel) {
+      ctx.strokeStyle = coral; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(x, y, r + 6, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x - r - 11, y); ctx.lineTo(x - r - 3, y);
+      ctx.moveTo(x + r + 3, y); ctx.lineTo(x + r + 11, y);
+      ctx.moveTo(x, y - r - 11); ctx.lineTo(x, y - r - 3);
+      ctx.moveTo(x, y + r + 3); ctx.lineTo(x, y + r + 11);
+      ctx.stroke();
+    }
+    chartPoints.push({ x, y, r: Math.max(r, 7), addr });
+  }
+
+  if (!findings.length) {
+    ctx.fillStyle = amber;
+    ctx.font = '500 11px "Spline Sans Mono", monospace';
+    ctx.fillText("No issues to plot", padL + plotW / 2, padT + plotH / 2);
+  }
+}
+
+$("chart").addEventListener("click", (e) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  let best = null, bestD = Infinity;
+  for (const p of chartPoints) {
+    const d = Math.hypot(p.x - mx, p.y - my);
+    if (d < p.r + 5 && d < bestD) { best = p; bestD = d; }
+  }
+  if (best) selectObject(best.addr, true);
+});
+
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(drawChart, 120);
+});
+
+/* --- previous runs -------------------------------------------------------- */
 async function loadHistory() {
   const { runs } = await fetch("/api/history").then((r) => r.json());
   if (!runs.length) {
-    $("history-list").innerHTML = '<div class="empty small">No runs yet.</div>';
+    $("history-list").innerHTML = '<div class="empty">No runs yet. Check a paper and it will appear here.</div>';
+    $("clear-history").hidden = true;
     return;
   }
+  $("clear-history").hidden = false;
   $("history-list").innerHTML = runs
-    .map(
-      (run) =>
-        `<div class="hrun" data-id="${esc(run.id)}">` +
-        `<div class="t">${esc(run.title)}</div>` +
-        `<div class="m"><span>${esc(run.ts.slice(0, 16).replace("T", " "))}</span>` +
-        `<span>${run.findings} finding${run.findings === 1 ? "" : "s"}${run.partial ? " · partial" : ""}</span>` +
-        `<button class="del" data-del="${esc(run.id)}" title="delete">&times;</button></div>` +
-        `</div>`,
-    )
+    .map((run) => {
+      const name = run.source && run.source.filename ? run.source.filename : run.title;
+      return `<div class="run-row" data-id="${esc(run.id)}">` +
+        `<span class="run-title">${esc(name)}</span>` +
+        `<span class="run-meta">${esc(run.ts.slice(0, 16).replace("T", " "))}</span>` +
+        `<span class="run-count">${plural(run.findings, "issue", "issues")}</span>` +
+        `<button class="run-del" data-del="${esc(run.id)}" aria-label="Delete this run">&times;</button>` +
+        `</div>`;
+    })
     .join("");
-  for (const el of document.querySelectorAll(".hrun")) {
-    el.onclick = async (e) => {
+
+  for (const row of document.querySelectorAll(".run-row")) {
+    row.onclick = async (e) => {
       if (e.target.dataset.del) return;
-      const rec = await fetch("/api/history/" + el.dataset.id).then((r) => r.json());
+      const rec = await fetch("/api/history/" + row.dataset.id).then((r) => r.json());
       $("text").value = rec.input.text;
       $("brief").value = rec.input.brief || "";
       lastSource = rec.input.source;
-      render({ result: rec.result, layers: rec.layers });
-      $("status").textContent = `Viewing past run ${rec.id} (${rec.ms} ms)`;
-      showTab("paste");
+      render({
+        result: rec.result, layers: rec.layers,
+        checks: rec.checks || [], text: rec.input.text, source: rec.input.source,
+      }, false);
+      goTo("results");
     };
   }
   for (const del of document.querySelectorAll("[data-del]")) {
@@ -298,15 +637,21 @@ async function loadHistory() {
   }
 }
 $("clear-history").onclick = async () => {
-  if (!confirm("Delete all run history from disk?")) return;
+  if (!confirm("Delete every saved run from this machine?")) return;
   await fetch("/api/history", { method: "DELETE" });
   loadHistory();
 };
 
-/* ------------------------------------------------------------------ boot */
+/* --- boot ----------------------------------------------------------------- */
 (async function boot() {
-  const status = await fetch("/api/status").then((r) => r.json());
-  serverKey = Boolean(status.server_key);
+  try {
+    const status = await fetch("/api/status").then((r) => r.json());
+    serverKey = Boolean(status.server_key);
+    $("ro-glossary").textContent = status.glossary_terms ? `${status.glossary_terms} terms` : "none loaded";
+    $("foot-version").textContent = status.version ? `v${status.version}` : "";
+  } catch {
+    $("ro-glossary").textContent = "unreachable";
+  }
   $("key").value = currentKey();
   const savedUrl = localStorage.getItem(URL_STORE) || "";
   if (savedUrl.startsWith("custom:")) {
@@ -317,6 +662,7 @@ $("clear-history").onclick = async () => {
     $("provider").value = savedUrl;
   }
   $("model").value = localStorage.getItem(MODEL_STORE) || "";
-  paintModelState();
+  paintInstrument();
+  goTo("compose");
   loadHistory();
 })();

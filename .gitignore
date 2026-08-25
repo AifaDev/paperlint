@@ -6,3 +6,4 @@ data/benchmarks/
 *.partial.jsonl
 .env
 .DS_Store
+.impeccable/

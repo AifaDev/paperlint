@@ -3,89 +3,251 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>paperlint</title>
+<title>paperlint — check a manuscript</title>
+<link rel="stylesheet" href="/fonts.css">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<header>
-  <h1>paperlint</h1>
-  <p>Paste or upload a manuscript. Every layer reports what it found — and says honestly when it did not run. Advisory only; nothing leaves this machine except DOI/arXiv lookups and (with a key) model calls.</p>
-</header>
-<main>
-  <aside id="rail">
-    <div class="rail-head">
-      <b>History</b>
-      <button id="clear-history" class="link" type="button">clear</button>
-    </div>
-    <div id="history-list"><div class="empty small">No runs yet.</div></div>
-  </aside>
+<!--
+  DIRECTION CONTRACT — paperlint portal
+  THESIS: A manuscript is a plate of sky; every issue is an object plotted on it by severity.
+    Refuses the dashboard arrangement where findings become chart tiles and the paper disappears.
+  OWN-WORLD: Deep navy chart ground, chalk points, amber annotation, coral reticles. Hairline rules
+    with register ticks, tabular figures, severity as diameter, serif italic naming what data cannot.
+    The metaphor lives in the marks; every label is plain English.
+  STORY: One screen at a time — hand over the paper, read what the 16 checks found, then step into
+    the text and trace each issue to the words that caused it.
+  FIRST VIEWPORT: Masthead rule, a three-step indicator, the manuscript field under a plain label,
+    and the primary action directly beneath it. Nothing else competes for the first screen.
+  FORM: The Plate (celestial star atlas), taken over grounded candidate 6 of 7; seed key 8e8401dd.
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict,
+    DESIGN.md, and every shipping raster carrying its provenance
+-->
 
-  <section id="input-pane">
-    <div class="tabs">
-      <button id="tab-paste" class="tab active" type="button">Paste</button>
-      <button id="tab-upload" class="tab" type="button">Upload</button>
+<a class="skip" href="#step-compose">Skip to the manuscript field</a>
+
+<header class="masthead">
+  <div class="mast-inner">
+    <div class="ident">
+      <svg class="rosette" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="1"/>
+        <circle cx="16" cy="16" r="5.5" fill="none" stroke="currentColor" stroke-width="1"/>
+        <path d="M16 0v9M16 23v9M0 16h9M23 16h9" stroke="currentColor" stroke-width="1"/>
+        <circle cx="16" cy="16" r="1.6" fill="currentColor"/>
+      </svg>
+      <h1>paperlint</h1>
+      <p class="sub">16 checks for a research paper: terminology, citations, references, figures and claims.</p>
+    </div>
+    <div class="mast-right">
+      <dl class="readout">
+        <div><dt>Glossary</dt><dd id="ro-glossary">—</dd></div>
+        <div><dt>AI checks</dt><dd id="ro-model" class="off">off</dd></div>
+      </dl>
+      <a class="ghost link-btn" href="/slides" target="_blank" rel="noopener">How the 16 checks work</a>
+      <button id="new-scan" class="ghost" type="button" hidden>Scan a new paper</button>
+    </div>
+  </div>
+</header>
+
+<!-- Three steps, always visible, so it is obvious where you are and what is left. -->
+<nav class="steps" aria-label="Progress">
+  <ol>
+    <li id="step-1" class="on"><span class="n">1</span> Your paper</li>
+    <li id="step-2"><span class="n">2</span> What we found</li>
+    <li id="step-3"><span class="n">3</span> In the text</li>
+  </ol>
+</nav>
+
+<main>
+  <!-- ===================================================== STEP 1 — compose -->
+  <section id="step-compose" class="panel">
+    <div class="panel-head">
+      <h2>Give us the paper</h2>
+      <div class="seg" role="tablist" aria-label="How to provide the manuscript">
+        <button id="tab-paste" class="seg-btn active" role="tab" aria-selected="true" type="button">Paste text</button>
+        <button id="tab-upload" class="seg-btn" role="tab" aria-selected="false" type="button">Upload a file</button>
+      </div>
     </div>
 
     <div id="pane-paste">
-      <label for="text">Manuscript text (HTML, Markdown, or plain)</label>
-      <textarea id="text" placeholder="Paste a research draft here…"></textarea>
+      <label class="lbl" for="text">Manuscript text</label>
+      <textarea id="text" spellcheck="false" placeholder="Paste your paper here. Plain text, Markdown or HTML all work."></textarea>
     </div>
 
     <div id="pane-upload" hidden>
-      <div id="drop">
-        <p><b>Drop a .pdf or .docx here</b> — or</p>
+      <div id="drop" class="drop">
+        <svg viewBox="0 0 48 48" class="drop-mark" aria-hidden="true">
+          <circle cx="24" cy="24" r="15" fill="none" stroke="currentColor" stroke-width="1"/>
+          <path d="M24 15v18M24 33l-6-6M24 33l6-6" fill="none" stroke="currentColor" stroke-width="1.25"/>
+        </svg>
+        <p><b>Drop a PDF or Word file here</b></p>
+        <p class="fine">The text is pulled out and shown to you first, so you can see and trim exactly what gets checked.</p>
         <input id="file" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
-        <p class="small" id="drop-status">Extracted text fills the editor so you can see (and trim) exactly what will be reviewed.</p>
+        <p class="fine" id="drop-status" role="status"></p>
       </div>
     </div>
 
-    <label for="brief" style="margin-top:12px">Summary / abstract (optional — checked against the body)</label>
+    <label class="lbl" for="brief">Abstract <span>optional</span></label>
     <input id="brief" type="text" placeholder="e.g. Adoption could reach 45% by 2030.">
+    <p class="fine">Paste your abstract and paperlint checks whether the body actually supports it.</p>
+
+    <div id="ai-notice" class="notice" hidden>
+      <div>
+        <b>AI checks are off — 12 of the 16 checks will run.</b>
+        <p class="fine">
+          Adding an API key turns on the other 4: claim vs. cited source, contradictions, methodology
+          and overclaiming. Those are the ones that read your argument rather than your formatting, and
+          they catch problems the other 12 structurally cannot. You can run without a key — the 4 will
+          simply be reported as not performed.
+        </p>
+      </div>
+      <button id="open-key" class="ghost" type="button">Add an API key</button>
+    </div>
 
     <details id="key-panel">
-      <summary>AI checks — provider &amp; API key</summary>
-      <div class="key-row">
-        <select id="provider">
-          <option value="https://api.groq.com/openai/v1">Groq</option>
-          <option value="https://api.openai.com/v1">OpenAI</option>
-          <option value="https://openrouter.ai/api/v1">OpenRouter</option>
-          <option value="https://api.together.xyz/v1">Together</option>
-          <option value="https://api.deepseek.com/v1">DeepSeek</option>
-          <option value="https://api.mistral.ai/v1">Mistral</option>
-          <option value="https://api.x.ai/v1">xAI</option>
-          <option value="http://localhost:11434/v1">Ollama (local)</option>
-          <option value="custom">Custom…</option>
-        </select>
-        <input id="model" type="text" placeholder="model name (blank = provider default)">
+      <summary>
+        <span class="sum-label">AI checks — provider and API key</span>
+        <span class="sum-note">4 of the 16 checks need one. The other 12 always run.</span>
+      </summary>
+      <div class="key-body">
+        <div class="field-row">
+          <label class="lbl" for="provider">Provider</label>
+          <select id="provider">
+            <option value="https://api.groq.com/openai/v1">Groq</option>
+            <option value="https://api.openai.com/v1">OpenAI</option>
+            <option value="https://openrouter.ai/api/v1">OpenRouter</option>
+            <option value="https://api.together.xyz/v1">Together</option>
+            <option value="https://api.deepseek.com/v1">DeepSeek</option>
+            <option value="https://api.mistral.ai/v1">Mistral</option>
+            <option value="https://api.x.ai/v1">xAI</option>
+            <option value="http://localhost:11434/v1">Ollama (runs locally)</option>
+            <option value="custom">Something else…</option>
+          </select>
+        </div>
+        <div class="field-row" id="custom-row" hidden>
+          <label class="lbl" for="base-url">Endpoint</label>
+          <input id="base-url" type="text" placeholder="https://your-endpoint/v1">
+        </div>
+        <div class="field-row">
+          <label class="lbl" for="model">Model</label>
+          <input id="model" type="text" placeholder="Leave blank to use the provider's default">
+        </div>
+        <div class="field-row">
+          <label class="lbl" for="key">API key</label>
+          <div class="key-input">
+            <input id="key" type="password" placeholder="Paste your key" autocomplete="off">
+            <button id="key-show" class="ghost" type="button">Show</button>
+            <button id="key-test" class="ghost" type="button">Test key</button>
+            <button id="key-clear" class="ghost" type="button">Clear</button>
+          </div>
+        </div>
+        <p class="fine">
+          Any provider with an OpenAI-compatible <code>/chat/completions</code> endpoint works. Your key stays
+          in this browser, is sent to your own local server for each run, and is never saved to disk,
+          written to a log, or kept in your history.
+        </p>
       </div>
-      <div class="key-row" id="custom-row" hidden>
-        <input id="base-url" type="text" placeholder="https://your-endpoint/v1  — any OpenAI-compatible API">
-      </div>
-      <div class="key-row">
-        <input id="key" type="password" placeholder="API key (stored in this browser only)">
-        <button id="key-show" class="sec" type="button" title="show/hide">&#128065;</button>
-        <button id="key-test" class="sec" type="button">Test</button>
-        <button id="key-clear" class="sec" type="button">Clear</button>
-      </div>
-      <p class="small">Any OpenAI-compatible <code>/chat/completions</code> endpoint works. The key stays in this browser's localStorage and is sent only to your local server per run — never stored on disk, logged, or written into history. (Providers must support JSON-schema structured output; Anthropic's API shape is not OpenAI-compatible and is not supported here.)</p>
     </details>
 
-    <div class="row">
-      <button id="run">Run review</button>
-      <button id="sample" class="sec" type="button">Load sample</button>
-      <span id="model-state" class="pill off">model layers: off</span>
-      <span id="status" class="small"></span>
+    <div class="actions">
+      <button id="run" class="primary" type="button">
+        <svg viewBox="0 0 20 20" aria-hidden="true" class="btn-mark">
+          <circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.2"/>
+          <path d="M10 1v5M10 14v5M1 10h5M14 10h5" stroke="currentColor" stroke-width="1.2"/>
+        </svg>
+        <span>Check this paper</span>
+      </button>
+      <button id="sample" class="ghost" type="button">Try a sample</button>
+      <span id="status" class="status" role="status"></span>
+    </div>
+
+    <div class="history-block">
+      <h3>Previous runs</h3>
+      <p class="fine">Kept on this machine so you can compare a revision against an earlier draft.</p>
+      <div id="history-list" class="log"></div>
+      <button id="clear-history" class="ghost" type="button">Delete all runs</button>
     </div>
   </section>
 
-  <section id="results-pane">
-    <div id="banner" hidden></div>
-    <div class="card">
-      <div class="stats" id="stats"><div class="empty">Results appear here.</div></div>
-      <div id="layers"></div>
+  <!-- ===================================================== STEP 2 — results -->
+  <section id="step-results" class="panel" hidden>
+    <div id="banner" class="banner" hidden></div>
+
+    <div class="panel-head">
+      <h2 id="results-title">What we found</h2>
+      <span class="head-note">Tap any <span class="info-inline" aria-hidden="true">i</span> to see what that check looks for.</span>
+    </div>
+
+    <p id="summary" class="summary" aria-live="polite"></p>
+
+    <h3 class="group-head">Always run <span id="det-note"></span></h3>
+    <ol class="checks" id="checks-deterministic"></ol>
+
+    <h3 class="group-head">Need an API key <span id="ai-note"></span></h3>
+    <div id="ai-gap" class="notice" hidden>
+      <div>
+        <b>These 4 checks were not performed.</b>
+        <p class="fine">
+          They read the argument itself — whether a claim matches the source it cites, whether two
+          statements contradict, whether the method matches the results, whether a claim outruns its
+          evidence. Add a key and run again to include them.
+        </p>
+      </div>
+      <button id="open-key-2" class="ghost" type="button">Add a key and re-run</button>
+    </div>
+    <ol class="checks" id="checks-ai"></ol>
+
+    <div class="stepnav">
+      <button id="to-text" class="primary" type="button">
+        <span>Next — see the issues in your text</span>
+        <svg viewBox="0 0 20 20" aria-hidden="true" class="btn-mark"><path d="M3 10h13M11 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+      </button>
+      <button id="back-compose" class="ghost" type="button">Back to the paper</button>
+    </div>
+  </section>
+
+  <!-- ======================================================== STEP 3 — text -->
+  <section id="step-text" class="panel" hidden>
+    <div class="panel-head">
+      <h2>Your paper, marked up</h2>
+      <span class="head-note">Underlined words are the ones a check flagged.</span>
+    </div>
+
+    <div class="ramp" id="ramp-text"></div>
+    <p class="markkey">
+      <span class="mk mk-flag">underlined</span> = flagged by a check ·
+      <span class="mk mk-sel">boxed</span> = the one you have selected
+    </p>
+
+    <figure class="chart-wrap">
+      <canvas id="chart" role="img"
+        aria-label="Every issue plotted by where it occurs in the paper, grouped by check, sized by severity."></canvas>
+      <figcaption class="fine">
+        Each dot is one issue, placed where it occurs in your paper — left is the beginning, right is the end.
+        Bigger dots are more serious. Click a dot to jump to it.
+      </figcaption>
+    </figure>
+
+    <div class="plate-body">
+      <div id="manuscript" class="manuscript"></div>
+      <aside id="object-card" class="object-card" hidden></aside>
+    </div>
+
+    <div class="stepnav">
+      <button id="back-results" class="ghost" type="button">Back to what we found</button>
+      <button id="new-scan-2" class="ghost" type="button">Scan a new paper</button>
     </div>
   </section>
 </main>
+
+<footer class="foot">
+  <p>paperlint is advisory. It reports what looks wrong; you decide what to change.</p>
+  <p class="fine">
+    Nothing leaves this machine except DOI and arXiv lookups — and, if you add a key, calls to the
+    provider you chose. Terminology is checked against the ICAIRE AI Glossary. <span id="foot-version"></span>
+  </p>
+</footer>
+
 <script src="/app.js"></script>
 </body>
 </html>

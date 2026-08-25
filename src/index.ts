@@ -58,6 +58,28 @@ export type PipelineInput = {
   rowLocale: string;
 };
 
+/**
+ * Every check this pipeline can attribute a finding to. The language gate is
+ * deliberately absent: it produces a `skipped_reason`, never a finding, and
+ * listing it here would imply it can fire.
+ */
+export type CheckId =
+  | "glossary-term"
+  | "citation-unresolved"
+  | "citation-mismatch"
+  | "citation-retracted"
+  | "cited-not-listed"
+  | "listed-not-cited"
+  | "duplicate-reference"
+  | "reference-missing-year"
+  | "float-never-referenced"
+  | "float-missing"
+  | "summary-drift"
+  | "claim-vs-source"
+  | "contradiction"
+  | "overclaim"
+  | "methodology";
+
 export type PipelineFinding = {
   category: "glossary" | "citation" | "consistency" | "claim" | "reference";
   severity: "info" | "warning";
@@ -68,6 +90,15 @@ export type PipelineFinding = {
   suggestion: string | null;
   /** Glossary slug, DOI/arXiv identifier, or null. */
   source_ref: string | null;
+  /**
+   * WHICH CHECK PRODUCED THIS, as a stable id rather than a prose template.
+   * The UI groups by it and the web server routes on it. Before this existed,
+   * consumers had to regex `message_en` to tell a retraction from an
+   * unresolved DOI — a joint that breaks the moment a message is reworded.
+   * The reference layer already carried a `kind` internally; this carries the
+   * same idea across every layer so no consumer has to guess again.
+   */
+  check: CheckId;
   /**
    * WHICH COMPONENT ACTUALLY DECIDED THIS. Recorded on every finding, not a
    * sample — adopted from a prior system whose provenance field exposed its
@@ -176,6 +207,7 @@ const MESSAGES = {
 function glossaryToPipelineFinding(finding: GlossaryFinding): PipelineFinding {
   return {
     category: "glossary",
+    check: "glossary-term",
     severity: "info",
     quoted_span: finding.matched_text,
     span_start: finding.start,
@@ -221,6 +253,7 @@ export function checkConsistency(brief: string, bodyText: string): PipelineFindi
     if (rounded) continue;
     findings.push({
       category: "consistency",
+      check: "summary-drift",
       severity: "info",
       quoted_span: value,
       span_start: null, // spans index into the BODY text; this is in the brief
@@ -321,6 +354,7 @@ export async function runReviewPipeline(input: PipelineInput, deps: PipelineDeps
     if (outcome.status === "found" && outcome.retracted) {
       citationFindings.push({
         category: "citation",
+        check: "citation-retracted",
         severity: "warning",
         quoted_span: identifier.raw,
         span_start: identifier.offset,
@@ -336,6 +370,7 @@ export async function runReviewPipeline(input: PipelineInput, deps: PipelineDeps
     const label = identifier.kind === "doi" ? `DOI ${identifier.id}` : `arXiv ${identifier.id}`;
     citationFindings.push({
       category: "citation",
+      check: finding.kind === "citation-not-found" ? "citation-unresolved" : "citation-mismatch",
       severity: "warning",
       quoted_span: identifier.raw,
       span_start: identifier.offset,
@@ -401,6 +436,7 @@ export async function runReviewPipeline(input: PipelineInput, deps: PipelineDeps
     for (const finding of claims.findings) {
       claimFindings.push({
         category: "claim",
+        check: finding.kind === "contradiction" ? "contradiction" : "overclaim",
         severity: "info",
         quoted_span: finding.quote,
         span_start: finding.start,
@@ -426,6 +462,7 @@ export async function runReviewPipeline(input: PipelineInput, deps: PipelineDeps
     for (const finding of methodology.findings) {
       claimFindings.push({
         category: "claim",
+        check: "methodology",
         severity: "info",
         quoted_span: finding.quote,
         span_start: finding.start,
@@ -443,6 +480,7 @@ export async function runReviewPipeline(input: PipelineInput, deps: PipelineDeps
     for (const finding of raw) {
       claimFindings.push({
         category: "claim",
+        check: "claim-vs-source",
         severity: "warning",
         // The span is the author's own sentence, so a reviewer opens the
         // manuscript at the place being questioned.
@@ -473,6 +511,7 @@ export async function runReviewPipeline(input: PipelineInput, deps: PipelineDeps
   rawReferences.push(...checkFloats(extracted.text).findings);
   const referenceFindings: PipelineFinding[] = rawReferences.map((finding) => ({
     category: "reference",
+    check: finding.kind,
     // Editorial observations about the bibliography, never claims that the work
     // is wrong. `cited-not-listed` is the one a reader genuinely cannot work
     // around, so it alone is a warning.
