@@ -1,5 +1,10 @@
 {
   "generated": "bench-deterministic.mjs",
+  "glossary": {
+    "terms": 1297,
+    "source": "the curated vocabulary this layer was designed against - see CREDITS.md",
+    "note": "The glossary_findings and glossary_per_1k_words figures below were measured against that full ~1,300-term vocabulary, NOT the 33-term data/glossary.example.json bundled in this repo. Re-running bench:deterministic on a fresh clone uses the example and will report different, lower counts - that is not a regression. Verified by checking the five terms named in glossary_samples: none of them exists in the example file. A glossary false-positive rate is only comparable against the same vocabulary."
+  },
   "corpora": [
     {
       "id": "scifact",
