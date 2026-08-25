@@ -52,9 +52,9 @@ of the abstention rules in `src/matcher.ts`. Credit it wherever you use it; see
 [`../CREDITS.md`](../CREDITS.md).
 
 It **ships in this repository** at `data/glossary.json`, in the attributed
-envelope shown above, and is loaded with no configuration. To install a
-different vocabulary, use `npm run glossary:install -- <path> --name "Its Name"`,
-which wraps a raw export in the same envelope so its credit travels with it.
+envelope shown above, and is loaded with no configuration. To review against a
+different vocabulary instead, point `PAPERLINT_GLOSSARY` at it, or replace
+`data/glossary.json` — either shape above is accepted.
 
 ## Why the abstention rules exist
 
