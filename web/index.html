@@ -63,11 +63,18 @@
   <section id="step-compose" class="panel">
     <div class="panel-head">
       <h2>Give us the paper</h2>
-      <div class="seg" role="tablist" aria-label="How to provide the manuscript">
-        <button id="tab-paste" class="seg-btn active" role="tab" aria-selected="true" type="button">Paste text</button>
-        <button id="tab-upload" class="seg-btn" role="tab" aria-selected="false" type="button">Upload a file</button>
+      <div class="head-actions">
+        <button id="sample" class="ghost sample-btn" type="button">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+          Try a sample paper
+        </button>
+        <div class="seg" role="tablist" aria-label="How to provide the manuscript">
+          <button id="tab-paste" class="seg-btn active" role="tab" aria-selected="true" type="button">Paste text</button>
+          <button id="tab-upload" class="seg-btn" role="tab" aria-selected="false" type="button">Upload a file</button>
+        </div>
       </div>
     </div>
+    <p class="fine lead-note">No paper to hand? <b>Try a sample</b> loads a short draft that trips several checks at once.</p>
 
     <div id="pane-paste">
       <label class="lbl" for="text">Manuscript text</label>
@@ -157,7 +164,6 @@
         </svg>
         <span>Check this paper</span>
       </button>
-      <button id="sample" class="ghost" type="button">Try a sample</button>
       <span id="status" class="status" role="status"></span>
     </div>
 

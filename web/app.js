@@ -318,13 +318,16 @@ function render(data, fresh) {
       const open = badge.getAttribute("aria-expanded") === "true";
       for (const other of document.querySelectorAll(".info")) other.setAttribute("aria-expanded", "false");
       badge.setAttribute("aria-expanded", String(!open));
+      if (!open) placeTip(badge);
     };
+    badge.onmouseenter = () => placeTip(badge);
+    badge.onfocus = () => placeTip(badge);
   }
   for (const toggle of document.querySelectorAll(".check-toggle")) {
     toggle.onclick = () => {
       const open = toggle.getAttribute("aria-expanded") === "true";
       toggle.setAttribute("aria-expanded", String(!open));
-      toggle.parentElement.querySelector(".issues").hidden = open;
+      toggle.closest(".check").querySelector(".issues").hidden = open;
     };
   }
 
@@ -368,6 +371,7 @@ function checkRow(check, findings, index) {
   const id = `issues-${check.id}`;
   return (
     `<li class="check${check.count > 0 ? " has-issues" : ""}" style="--i:${index}">` +
+    `<div class="check-row">` +
     (expandable
       ? `<button class="check-toggle" type="button" aria-expanded="false" aria-controls="${id}"` +
         ` aria-label="Show the ${plural(mine.length, "issue", "issues")} from ${esc(check.label)}"></button>`
@@ -387,6 +391,7 @@ function checkRow(check, findings, index) {
     (expandable
       ? `<svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>`
       : `<span class="chev-gap"></span>`) +
+    `</div>` +
     `<ul class="issues" id="${id}" hidden>${mine.map((f) => issueRow(f)).join("")}</ul>` +
     `</li>`
   );
@@ -422,6 +427,21 @@ function renderGroups(checks, findings) {
       `<ol class="checks">${rows.map((x) => checkRow(x, findings, n++)).join("")}</ol>` +
       `</section>`;
   }).join("");
+}
+
+/* Keep an example tooltip inside the window. A CSS anchor cannot know where the
+   badge sits, so left-anchoring clipped badges near the right edge and
+   right-anchoring clipped badges near the left. Measure and clamp instead. */
+function placeTip(badge) {
+  const tip = badge.querySelector(".tip");
+  if (!tip) return;
+  tip.style.left = "0px";
+  const badgeLeft = badge.getBoundingClientRect().left;
+  const width = tip.getBoundingClientRect().width;
+  const margin = 10;
+  const min = margin - badgeLeft;                              // flush to the left edge
+  const max = window.innerWidth - margin - width - badgeLeft;  // flush to the right edge
+  tip.style.left = `${Math.round(max < min ? min : Math.min(Math.max(0, min), max))}px`;
 }
 
 /* Colour follows the word, never replaces it. */

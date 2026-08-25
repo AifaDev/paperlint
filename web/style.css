@@ -226,20 +226,23 @@ button { font-family: var(--sans); cursor: pointer; }
 
 .checks { list-style: none; margin: 0; padding: 0; }
 
-.check {
+.check { border-bottom: 1px solid var(--rule); }
+/* Only the header row carries the stretched toggle. When it covered the whole
+   <li>, its expanded background painted over the issue list and the panel
+   opened blank. */
+.check-row {
   position: relative;
   display: grid; grid-template-columns: 1fr auto auto 18px;
   gap: var(--s3) var(--s4); align-items: center;
   padding: var(--s3) var(--s4);
-  border-bottom: 1px solid var(--rule);
 }
 .check:last-child { border-bottom: 0; }
 .check-toggle { position: absolute; inset: 0; background: none; border: 0; padding: 0; margin: 0; z-index: 1; }
 .check-toggle:hover { background: rgba(20,84,158,.05); }
 .check-toggle[aria-expanded="true"] { background: var(--paper-2); }
-.check > *:not(.check-toggle):not(.issues) { position: relative; z-index: 2; }
-.check > *:not(.check-toggle):not(.issues):not(.info) { pointer-events: none; }
-.check > .info { z-index: 3; }
+.check-row > *:not(.check-toggle) { position: relative; z-index: 2; }
+.check-row > *:not(.check-toggle):not(.info) { pointer-events: none; }
+.check-row .info { pointer-events: auto; }
 
 .check-mark { width: 20px; height: 20px; margin-top: 1px; }
 .check-body { min-width: 0; }
@@ -252,6 +255,7 @@ button { font-family: var(--sans); cursor: pointer; }
 .check-state.is-idle { color: var(--ink-3); }
 .check-count { font: 600 19px/1.2 var(--sans); color: var(--ink-3); text-align: right; }
 .check.has-issues .check-count { color: var(--sev-major); }
+.check-body { min-width: 0; }
 .chev { width: 14px; height: 14px; color: var(--ink-3); margin-top: 4px; justify-self: end; }
 .check:has(.check-toggle[aria-expanded="true"]) .chev { transform: rotate(180deg); }
 .chev-gap { width: 14px; }
@@ -271,6 +275,7 @@ button { font-family: var(--sans); cursor: pointer; }
 .info:hover, .info:focus-visible, .info[aria-expanded="true"] { background: var(--link); border-color: var(--link); color: #fff; }
 .info .tip {
   position: absolute; bottom: calc(100% + 8px); left: 0;
+  max-inline-size: min(320px, 68vw);
   width: max-content; max-width: 320px;
   background: var(--ink); color: #fff;
   padding: var(--s2) var(--s3);
@@ -283,7 +288,7 @@ button { font-family: var(--sans); cursor: pointer; }
 .info:hover .tip, .info:focus-visible .tip, .info[aria-expanded="true"] .tip { opacity: 1; pointer-events: auto; }
 
 /* --- issues under a check ------------------------------------------------- */
-.issues { grid-column: 1 / -1; list-style: none; margin: var(--s3) 0 0; padding: 0; }
+.issues { list-style: none; margin: 0; padding: 0; }
 .issue {
   display: grid; grid-template-columns: 16px 1fr; gap: var(--s3);
   padding: var(--s3); border-top: 1px solid var(--rule); background: var(--paper-2);
@@ -441,12 +446,17 @@ button { font-family: var(--sans); cursor: pointer; }
    ========================================================================== */
 .group-card {
   border: 1px solid var(--rule-2); border-radius: 10px;
-  background: var(--paper); overflow: hidden;
+  background: var(--paper);
   margin-bottom: var(--s4);
 }
+/* No overflow:hidden here — it clipped the example tooltips. The header rounds
+   its own top corners and the last row rounds the bottom. */
+.group-card > .checks > .check:last-child { border-bottom: 0; }
+.group-card > .checks > .check:last-child .check-row { border-radius: 0 0 9px 9px; }
 .group-card-head {
   display: flex; align-items: center; justify-content: space-between; gap: var(--s4);
   padding: var(--s3) var(--s4);
+  border-radius: 9px 9px 0 0;
   border-bottom: 1px solid var(--rule);
   border-left: 4px solid var(--idle-bd);
   background: var(--paper-2);
@@ -480,6 +490,7 @@ button { font-family: var(--sans); cursor: pointer; }
   color: var(--ink-3); font-variant-numeric: tabular-nums;
 }
 .check.has-issues .check-count { color: var(--sev-major); }
+.check-body { min-width: 0; }
 .check-body { grid-column: 1; min-width: 0; }
 
 /* --- narrow --------------------------------------------------------------- */
@@ -504,14 +515,14 @@ button { font-family: var(--sans); cursor: pointer; }
 
   /* The row stacks: the check and its description own the full width, the
      verdict and count sit together beneath. */
-  .check { grid-template-columns: 1fr auto; row-gap: var(--s2); }
+  .check-row { grid-template-columns: 1fr auto; row-gap: var(--s2); }
   .check-body { grid-column: 1 / -1; }
-  .check .pill { grid-column: 1; justify-self: start; }
+  .check-row .pill { grid-column: 1; justify-self: start; }
   .check-count { grid-column: 2; justify-self: end; }
   .chev, .chev-gap { display: none; }
 
   .group-card-head { flex-wrap: wrap; }
-  .info .tip { max-width: 240px; left: auto; right: 0; }
+  .info .tip { max-width: min(260px, 82vw); }
   .manuscript { max-height: 460px; padding: var(--s4); }
   .foot { padding: var(--s5) var(--s4) var(--s7); }
   /* In column direction a flex-basis is a HEIGHT, so the 400px basis was
@@ -524,3 +535,14 @@ button { font-family: var(--sans); cursor: pointer; }
   .ov-grid { grid-template-columns: repeat(8, 14px); }
   .ov-cell { width: 14px; height: 14px; }
 }
+
+/* --- step 1 head actions --------------------------------------------------- */
+.head-actions { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.sample-btn {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  border-color: var(--link); color: var(--link); font-weight: 600;
+}
+.sample-btn svg { width: 14px; height: 14px; }
+.sample-btn:hover { background: #F0F5FC; border-color: var(--link); color: var(--link-dark); }
+.lead-note { margin: calc(-1 * var(--s3)) 0 0; }
+.lead-note b { color: var(--ink); font-weight: 600; }
