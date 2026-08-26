@@ -164,4 +164,57 @@ describe("checkFloats — figures and tables, both directions", () => {
     const text = "As Fig. 1 makes clear, the loss drops sharply after warmup.\n\nFigure 1: Training loss.\n";
     assert.deepEqual(kinds2(text), []);
   });
+
+  // ---------------------------------------------------------------------
+  // How authors ACTUALLY point at floats. Every case below was a reported
+  // false positive: the mention pattern read only a single bare number, so a
+  // figure cited as part of a pair, a range, or with a panel letter looked
+  // like a figure nobody had cited.
+  // ---------------------------------------------------------------------
+  test("a plural mention satisfies BOTH figures", () => {
+    const text = "Figure 1: Accuracy.\nFigure 2: Recall.\n\nAs shown in Figures 1 and 2, the margin widens.";
+    assert.deepEqual(kinds2(text), []);
+  });
+
+  test("a numeric range satisfies every figure it spans", () => {
+    const text = "Figure 1: A.\nFigure 2: B.\nFigure 3: C.\n\nSee Figures 1-3 for detail.";
+    assert.deepEqual(kinds2(text), []);
+  });
+
+  test("an en-dash range counts too — typesetters do not use hyphens", () => {
+    const text = "Figure 1: A.\nFigure 2: B.\nFigure 3: C.\n\nSee Figures 1\u20133 for detail.";
+    assert.deepEqual(kinds2(text), []);
+  });
+
+  test("a comma list satisfies each figure named", () => {
+    const text = "Figure 1: A.\nFigure 2: B.\nFigure 3: C.\n\nSee Figures 1, 2 and 3.";
+    assert.deepEqual(kinds2(text), []);
+  });
+
+  test("a panel letter still points at the figure", () => {
+    const text = "Figure 1: Accuracy.\n\nAs shown in Figure 1a, the margin widens.";
+    assert.deepEqual(kinds2(text), []);
+  });
+
+  // ---------------------------------------------------------------------
+  // Caption FORMS. The delimiter is mandatory and is the safety property:
+  // it is what separates a caption from a sentence about a float.
+  // ---------------------------------------------------------------------
+  test("a Nature-style pipe caption is a caption", () => {
+    const text = "Figure 1 | Accuracy over time.\n\nAs shown in Figure 1, it rises.";
+    assert.deepEqual(kinds2(text), []);
+  });
+
+  test("a caption flowed inline by PDF extraction is still a caption", () => {
+    const text = "Some prose here. Figure 1: Accuracy over time. More text about Figure 1 here.";
+    assert.deepEqual(kinds2(text), []);
+  });
+
+  test("prose ABOUT a figure is not a caption OF one", () => {
+    // The regression this guards: with a no-delimiter caption branch, and /i
+    // making [A-Z] match lowercase, "Figure 1 shows…" was read as a caption —
+    // turning a correct document into a false positive.
+    const text = "Figure 1 shows the trend, and Table 1 lists values.\n\nFigure 1: The trend.\nTable 1: Raw values.";
+    assert.deepEqual(kinds2(text), []);
+  });
 });

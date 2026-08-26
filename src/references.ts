@@ -246,8 +246,66 @@ export function checkReferences(
  * with NO captions detected, the whole check stays silent, because most
  * plain-text submissions carry no floats at all.
  */
-const CAPTION_RE = /^[ \t]*(Figure|Fig\.?|Table)\s+(\d{1,3})\s*[.:—-]/gim;
-const MENTION_RE = /\b(?:Figure|Fig\.|Fig|Table)\s+(\d{1,3})\b/g;
+/**
+ * A caption is a float DECLARING itself, which is what makes the delimiter the
+ * safety property rather than the line position. Real documents put captions
+ * in three places:
+ *   "Figure 1: Accuracy"      — the common case, at a line start
+ *   "Figure 1 | Accuracy"     — Nature and friends
+ *   "…prose. Figure 1: Acc."  — PDF extraction flows captions into a paragraph
+ * so the position is relaxed to "line start or after a sentence end" while the
+ * DELIMITER IS KEPT MANDATORY. That delimiter is the whole safety property: it
+ * is what separates a caption from a sentence *about* a float. A branch that
+ * accepted "Figure 1 Caption" with no delimiter was tried and removed — under
+ * the /i flag `[A-Z]` also matches lowercase, so "Figure 1 shows the trend"
+ * was read as a caption, which silently converted a correct document into a
+ * false positive. A caption style with no delimiter therefore stays
+ * undetected, and the check stays silent, which is the safe direction.
+ */
+const CAPTION_RE =
+  /(?:^[ \t]*|(?<=[.!?]\s{1,4}))(Figure|Fig\.?|Table)\s+(\d{1,3})\s*[.:|·—–-]/gim;
+
+/** The float families this check knows, for both captions and mentions. */
+const FAMILY_RE = /\b(?:Figures?|Figs?\.?|Tables?)/gi;
+
+/**
+ * Numbers attached to one mention. Authors write far more than "Figure 1":
+ *   "Figures 1 and 2"   "Figures 1, 2 and 4"   "Figures 1-3"   "Figs. 2–4"
+ *   "Figure 1a"         "Figure 1(b)"          "Table 2b"
+ * Every one of those is a reader being pointed at a float, so every one has to
+ * count as a mention. Reading only the first number is why a figure cited as
+ * part of a pair used to be reported as never referenced.
+ */
+function numbersAfterFamily(text: string, from: number): { numbers: number[]; end: number } {
+  const numbers: number[] = [];
+  let i = from;
+  let expectMore = true;
+  while (expectMore && i < text.length) {
+    const slice = text.slice(i, i + 24);
+    // A number, optionally with a panel letter: 1, 1a, 1(b)
+    const num = /^\s*(\d{1,3})(?:\s*\([a-z]\)|[a-z]\b)?/i.exec(slice);
+    if (!num) break;
+    const first = Number(num[1]);
+    i += num[0].length;
+    // A range: 1-3, 1–3, 1 to 3
+    const range = /^\s*(?:[-–—]|to)\s*(\d{1,3})/i.exec(text.slice(i, i + 12));
+    if (range) {
+      const last = Number(range[1]);
+      if (last >= first && last - first <= 30) {
+        for (let n = first; n <= last; n += 1) numbers.push(n);
+      } else {
+        numbers.push(first);
+      }
+      i += range[0].length;
+    } else {
+      numbers.push(first);
+    }
+    // A list continues with a comma, "and", or an ampersand.
+    const sep = /^\s*(?:,|and|&)\s*(?=\d)/i.exec(text.slice(i, i + 8));
+    if (sep) { i += sep[0].length; expectMore = true; } else { expectMore = false; }
+  }
+  return { numbers, end: i };
+}
 
 export function checkFloats(text: string): { findings: ReferenceFinding[]; captions: number } {
   const flowedForOffsets = text; // captions are matched on the RAW text (line anchors)
@@ -265,12 +323,16 @@ export function checkFloats(text: string): { findings: ReferenceFinding[]; capti
   const captionSpans = [...flowedForOffsets.matchAll(CAPTION_RE)].map((m) => [m.index ?? 0, (m.index ?? 0) + m[0].length]);
   const insideCaption = (at: number) => captionSpans.some(([s, e]) => at >= s && at < e);
   const mentionAt = new Map<string, number>();
-  for (const match of flowedForOffsets.matchAll(MENTION_RE)) {
-    if (insideCaption(match.index ?? 0)) continue;
+  for (const match of flowedForOffsets.matchAll(FAMILY_RE)) {
+    const at = match.index ?? 0;
+    if (insideCaption(at)) continue;
     const family = /^t/i.test(match[0]) ? "Table" : "Figure";
-    const key = `${family} ${match[1]}`;
-    mentioned.add(key);
-    if (!mentionAt.has(key)) mentionAt.set(key, match.index ?? 0);
+    const { numbers } = numbersAfterFamily(flowedForOffsets, at + match[0].length);
+    for (const n of numbers) {
+      const key = `${family} ${n}`;
+      mentioned.add(key);
+      if (!mentionAt.has(key)) mentionAt.set(key, at);
+    }
   }
 
   // Direction 1: a float exists but the prose never points a reader at it.
