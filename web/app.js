@@ -24,9 +24,6 @@ let uploadedBlocks = null;
 let editor = null;
 /** True once the author has changed anything, which makes the marks stale. */
 let edited = false;
-/** True while the editor is rendering its initial blocks. Editor.js emits input
- *  events as it builds the DOM, and those are not the author typing. */
-let mounting = false;
 let current = null;      // { result, layers, checks, text, blocks, source }
 let selectedId = null;
 
@@ -776,7 +773,6 @@ $("view-edit").onclick = () => showTextMode("edit");
 async function mountEditor() {
   if (!current) return;
   if (editor) return;
-  mounting = true;
   const data = window.plBlocks.toEditorData(current.blocks || []);
   editor = new window.EditorJS({
     holder: "editor",
@@ -815,27 +811,46 @@ async function mountEditor() {
     holder.addEventListener("cut", markStale);
   }
   try { await editor.isReady; } catch {}
-  // One more turn of the event loop: the last render events land after ready.
-  setTimeout(() => { mounting = false; }, 0);
 }
 
 /**
- * Declare the findings stale.
+ * Decide whether the findings are stale by COMPARING THE DOCUMENT, not by
+ * trusting an event.
  *
- * This deliberately does NOT return early when the flag is already set. An
- * earlier version did, and a flag that had drifted out of step with the screen
- * then swallowed the warning entirely — the document was known to be edited and
- * said nothing about it. The flag is the cheap part; the screen is the part
- * that must be right, so it is written every time.
+ * Three attempts at this were driven by event timing — Editor.js's onChange,
+ * then DOM input events, then a `mounting` flag to suppress the events the
+ * editor fires while rendering its own blocks — and each one broke in a new
+ * way, because "did an input event fire" is a proxy for the question and not
+ * the question. Twice the page announced "You have edited this paper" before
+ * the author had touched it.
+ *
+ * The real question is whether the text now differs from the text that was
+ * checked, and that is directly observable. Comparing it cannot drift, needs no
+ * suppression window, and is correct on the first mount by construction.
  */
-function markStale() {
-  if (mounting) return;   // the editor rendering its own blocks is not an edit
-  edited = true;
-  $("stale-bar").hidden = false;
+async function refreshStale() {
+  if (!current) return;
+  let same = true;
+  try {
+    const blocks = await currentBlocks();
+    same = window.plBlocks.serializeBlocks(blocks).text === (current.text || "");
+  } catch {
+    // If the editor cannot be read, say nothing rather than guessing either way.
+    return;
+  }
+  edited = !same;
+  $("stale-bar").hidden = same;
   // Grey the marks in the other view too, so switching back cannot present
   // stale highlights as if they were current.
-  $("manuscript").classList.add("stale");
-  $("view-marked").textContent = "Issues marked (stale)";
+  $("manuscript").classList.toggle("stale", !same);
+  $("view-marked").textContent = same ? "Issues marked" : "Issues marked (stale)";
+}
+
+/** Coalesce keystrokes: the comparison reads the whole document. */
+let staleTimer = null;
+function markStale() {
+  clearTimeout(staleTimer);
+  staleTimer = setTimeout(refreshStale, 180);
 }
 
 /** The document as it now stands in the editor, or the original if untouched. */
@@ -867,20 +882,10 @@ $("recheck").onclick = async () => {
     render({ result: res.result, layers: res.layers, checks: res.checks, text: checkedText, blocks, source: lastSource }, false);
     loadHistory();
     goTo("results");
-    // Only clear the staleness this re-check actually resolved. The editor stays
-    // live while the request is in flight, so an author can type during it;
-    // clearing unconditionally declared those newer edits checked when they
-    // never were. Compare what is in the editor NOW against what was sent.
-    const nowBlocks = await currentBlocks();
-    const stillMatches = window.plBlocks.serializeBlocks(nowBlocks).text === checkedText;
-    if (stillMatches) {
-      edited = false;
-      $("stale-bar").hidden = true;
-      $("manuscript").classList.remove("stale");
-      $("view-marked").textContent = "Issues marked";
-    } else {
-      markStale();
-    }
+    // render() has just set current.text to what was actually checked, so the
+    // one comparison decides this too: if the author typed while the re-check
+    // was in flight, the document already differs and stays marked stale.
+    await refreshStale();
   } catch (err) {
     $("stale-bar").querySelector(".fine").textContent = "Re-check failed — " + err.message;
   } finally {
