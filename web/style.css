@@ -617,3 +617,32 @@ button { font-family: var(--sans); cursor: pointer; }
   .dl { width: 100%; }
   .editor { padding: var(--s4) var(--s3); }
 }
+
+/* --- step 3, marked view: the paper leads --------------------------------- */
+/* The banner, the severity legend, the mark key and the chart together pushed
+   the manuscript past the fold, so the one thing this screen exists to show
+   was the one thing not on it. They are now one line, and the chart folds. */
+.marked-note {
+  display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap;
+  margin: 0 0 var(--s4); padding: var(--s3) var(--s4);
+  border: 1px solid var(--rule); border-left: 3px solid var(--clean);
+  background: var(--paper-2);
+  font: 400 13.5px/1.7 var(--sans); color: var(--ink-2);
+}
+.marked-note b { color: var(--ink); font-weight: 600; }
+.marked-note .tick { width: 15px; height: 15px; color: var(--clean); flex: none; align-self: center; }
+
+.chart-fold { margin-top: var(--s5); border-top: 1px solid var(--rule); padding-top: var(--s3); }
+.chart-fold > summary {
+  cursor: pointer; list-style: none;
+  font: 600 12px/1 var(--sans); letter-spacing: .04em;
+  color: var(--link); padding: var(--s2) 0;
+}
+.chart-fold > summary::-webkit-details-marker { display: none; }
+.chart-fold > summary::before { content: "▸ "; color: var(--ink-3); }
+.chart-fold[open] > summary::before { content: "▾ "; }
+.chart-fold > summary:hover { color: var(--link-dark); }
+.chart-fold .ramp { margin-top: var(--s3); }
+
+/* Taller now that it is the first thing on the screen. */
+.manuscript { max-height: 640px; }

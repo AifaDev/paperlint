@@ -265,37 +265,37 @@
 
     <!-- Reading mode: the text exactly as submitted, with the issues marked. -->
     <div id="pane-marked">
-      <div class="untouched">
-        <svg viewBox="0 0 20 20" aria-hidden="true">
-          <path d="M4 10.5l3.5 3.5L16 5.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <!-- One compact line, not three stacked banners: the paper itself is what
+           this screen is for, and every row above it pushed the highlights
+           below the fold. -->
+      <p class="marked-note">
+        <svg viewBox="0 0 20 20" aria-hidden="true" class="tick">
+          <path d="M4 10.5l3.5 3.5L16 5.5" fill="none" stroke="currentColor" stroke-width="2.2"/>
         </svg>
-        <p>
-          <b>This is your text exactly as you submitted it.</b> Nothing here has been changed —
-          the highlights are annotations. Switch to <b>Edit</b> to make changes yourself.
-        </p>
-      </div>
-
-      <div class="ramp" id="ramp-text"></div>
-      <p class="markkey">
-        <span class="mk mk-flag">highlighted<span class="mk-pin">01.1</span></span>
-        &nbsp;a check flagged this spot — the number is the issue's reference &nbsp;·&nbsp;
-        <span class="mk mk-sel">red<span class="mk-pin">01.1</span></span>
-        &nbsp;the one you have selected
+        <b>Your text, exactly as submitted.</b> Nothing changed —
+        <span class="mk mk-flag">highlights<span class="mk-pin">01.1</span></span> are annotations,
+        numbered to match the issue list. Switch to <b>Edit</b> to make changes.
       </p>
-
-      <figure class="chart-wrap">
-        <canvas id="chart" role="img"
-          aria-label="Every issue plotted by where it occurs in the paper, grouped by check, sized by severity."></canvas>
-        <figcaption class="fine">
-          Each dot is one issue, placed where it occurs in your paper — left is the beginning, right is the end.
-          Bigger dots are more serious. Click a dot to jump to it.
-        </figcaption>
-      </figure>
 
       <div class="plate-body">
         <div id="manuscript" class="manuscript"></div>
         <aside id="object-card" class="object-card" hidden></aside>
       </div>
+
+      <!-- The map comes after the territory: useful for seeing where problems
+           cluster, but not worth the first screen. -->
+      <details class="chart-fold">
+        <summary>Where the issues fall in the paper</summary>
+        <div class="ramp" id="ramp-text"></div>
+        <figure class="chart-wrap">
+          <canvas id="chart" role="img"
+            aria-label="Every issue plotted by where it occurs in the paper, grouped by check, sized by severity."></canvas>
+          <figcaption class="fine">
+            Each dot is one issue, placed where it occurs — left is the beginning, right is the end.
+            Bigger dots are more serious. Click a dot to jump to it.
+          </figcaption>
+        </figure>
+      </details>
     </div>
 
     <!-- Editing mode: the same document, editable. -->
