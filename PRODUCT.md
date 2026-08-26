@@ -74,9 +74,17 @@ comparative and iterative: paste, read findings, edit the manuscript, run again.
 - Terminology is checked against a glossary; the bundled example is 33 demo terms
   and a real curated vocabulary is dropped in at `data/glossary.json`.
 - Flow, user-confirmed: **one screen at a time**. Step 1 hand over the paper,
-  step 2 what the checks found (this screen leads), step 3 the same issues
-  marked in the text. A "Scan a new paper" control returns to step 1 from
-  anywhere.
+  step 2 what the checks found (this screen leads), step 3 the paper itself. A
+  "Scan a new paper" control returns to step 1 from anywhere.
+- Step 3 has **two modes over one document**. "Issues marked" shows the
+  submitted text exactly as given, with findings anchored to real character
+  offsets — that view still guarantees nothing was altered. "Edit" makes the
+  same document editable in a block editor, and the result downloads as .docx
+  or .pdf. The tool still never changes the author's text on its own; editing
+  is something the author does deliberately.
+- Because findings carry character offsets, **an edit invalidates them**. The
+  first keystroke marks them stale and offers a re-check rather than letting a
+  highlight drift onto words it was never about.
 
 ## Brand Commitments
 
