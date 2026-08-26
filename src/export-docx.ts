@@ -193,7 +193,17 @@ type RunStyle = {
 
 type Run = { kind: "text"; text: string; style: RunStyle } | { kind: "break" };
 
-const TAG_RE = /<(\/?)([a-zA-Z][^\s/>]*)((?:"[^"]*"|'[^']*'|[^>])*)>/g;
+/**
+ * The attribute run is written so that at every position EXACTLY ONE branch can
+ * match. The obvious spelling — `(?:"[^"]*"|'[^']*'|[^>])*` — lets `[^>]` also
+ * match a quote, so a tag that never closes forces the engine to try every way
+ * of pairing the quotes: catastrophic backtracking. Measured on an ordinary
+ * 147-character sentence containing a stray `<t` and a few quoted words, that
+ * spelling took 153 SECONDS, and this runs synchronously inside a request
+ * handler. Excluding quotes from the bare-character branch removes the
+ * ambiguity and makes the match linear.
+ */
+const TAG_RE = /<(\/?)([a-zA-Z][^\s/>]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g;
 
 function styleOf(stack: string[]): RunStyle {
   const style: RunStyle = {};
@@ -375,6 +385,14 @@ function pixelSize(bytes: Buffer, kind: ImageKind): { width: number; height: num
 const EMU_PER_PX = 9525; // 914400 EMU per inch at 96 dpi
 /** 6.5in — the text column of the page geometry set in SECTION_PR below. */
 const MAX_WIDTH_EMU = 5943600;
+/**
+ * 9in — the text height of the same page. A height is NOT merely cosmetic: the
+ * dimensions come from an image header, the header is attacker-controlled, and
+ * a forged one declaring a billion pixels produced a file that hung Microsoft
+ * Word outright rather than being rejected. Every other reader accepted it, so
+ * only clamping catches this.
+ */
+const MAX_HEIGHT_EMU = 8229600;
 const FALLBACK_EMU = { cx: 3657600, cy: 2743200 }; // 4in x 3in
 
 function emuSize(bytes: Buffer, kind: ImageKind): { cx: number; cy: number } {
@@ -386,6 +404,11 @@ function emuSize(bytes: Buffer, kind: ImageKind): { cx: number; cy: number } {
     cy = Math.max(1, Math.round((cy * MAX_WIDTH_EMU) / cx));
     cx = MAX_WIDTH_EMU;
   }
+  if (cy > MAX_HEIGHT_EMU) {
+    cx = Math.max(1, Math.round((cx * MAX_HEIGHT_EMU) / cy));
+    cy = MAX_HEIGHT_EMU;
+  }
+  if (!Number.isFinite(cx) || !Number.isFinite(cy)) return FALLBACK_EMU;
   return { cx: Math.max(1, Math.round(cx)), cy: Math.max(1, Math.round(cy)) };
 }
 
@@ -552,7 +575,17 @@ const STYLES_XML =
   "</w:styles>";
 
 const BULLET_NUM_ID = 1;
-const ORDERED_NUM_ID = 2;
+/**
+ * Ordered lists get ONE numId EACH, starting here.
+ *
+ * In WordprocessingML a numId is a single counter for the whole document, so
+ * reusing one across every ordered list makes the second list continue the
+ * first: a paper with two numbered lists renders 1. 2. then 3. 4. instead of
+ * restarting. Confirmed in Word itself. The test suite could not see it —
+ * mammoth renders <ol><li> and never the marker text — which is exactly why
+ * this is spelled out here rather than left to a reader to infer.
+ */
+const ORDERED_NUM_ID_BASE = 2;
 
 /**
  * Only level 0 is defined, in both shapes. The block model has no nested
@@ -571,18 +604,30 @@ function numberingLevel(format: string, text: string): string {
   );
 }
 
-const NUMBERING_XML =
-  XML_DECL +
-  '<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
-  '<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="singleLevel"/>' +
-  numberingLevel("bullet", "•") +
-  "</w:abstractNum>" +
-  '<w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="singleLevel"/>' +
-  numberingLevel("decimal", "%1.") +
-  "</w:abstractNum>" +
-  `<w:num w:numId="${BULLET_NUM_ID}"><w:abstractNumId w:val="0"/></w:num>` +
-  `<w:num w:numId="${ORDERED_NUM_ID}"><w:abstractNumId w:val="1"/></w:num>` +
-  "</w:numbering>";
+/**
+ * One `w:num` per ordered list, all pointing at the same abstract definition.
+ * Separate numIds are what make each list restart at 1; sharing a single one
+ * makes the second list continue the first — a paper with two numbered lists
+ * renders 1. 2. then 3. 4. instead of restarting.
+ */
+function numberingXml(orderedCount: number): string {
+  const nums: string[] = [`<w:num w:numId="${BULLET_NUM_ID}"><w:abstractNumId w:val="0"/></w:num>`];
+  for (let i = 0; i < orderedCount; i += 1) {
+    nums.push(`<w:num w:numId="${ORDERED_NUM_ID_BASE + i}"><w:abstractNumId w:val="1"/></w:num>`);
+  }
+  return (
+    XML_DECL +
+    '<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    '<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="singleLevel"/>' +
+    numberingLevel("bullet", "•") +
+    "</w:abstractNum>" +
+    '<w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="singleLevel"/>' +
+    numberingLevel("decimal", "%1.") +
+    "</w:abstractNum>" +
+    nums.join("") +
+    "</w:numbering>"
+  );
+}
 
 const PACKAGE_RELS =
   XML_DECL +
@@ -598,12 +643,22 @@ type MediaPart = { name: string; relId: string; bytes: Buffer; mime: string; kin
 /** null = an image block whose source could not be embedded; see collectMedia. */
 type MediaSlot = MediaPart | null;
 
+/** How many ordered lists the document holds — one numbering counter each. */
+function orderedListCount(blocks: Block[]): number {
+  let n = 0;
+  for (const block of blocks) if (block && block.type === "list" && block.ordered) n += 1;
+  return n;
+}
+
 function documentXml(blocks: Block[], media: MediaSlot[]): string {
   const body: string[] = [];
   // Media slots are positional: the Nth image block owns the Nth slot, which
   // is why a skipped image still occupies one.
   let imageIndex = 0;
   let drawingId = 1;
+  // Each ordered list claims the next numId so its numbering restarts at 1.
+  let orderedSeen = 0;
+  const nextOrderedNumId = () => ORDERED_NUM_ID_BASE + orderedSeen++;
 
   for (const block of blocks) {
     switch (block.type) {
@@ -626,7 +681,7 @@ function documentXml(blocks: Block[], media: MediaSlot[]): string {
         );
         break;
       case "list": {
-        const numId = block.ordered ? ORDERED_NUM_ID : BULLET_NUM_ID;
+        const numId = block.ordered ? nextOrderedNumId() : BULLET_NUM_ID;
         const props =
           '<w:pStyle w:val="ListParagraph"/>' +
           `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${numId}"/></w:numPr>`;
@@ -781,7 +836,7 @@ export function blocksToDocx(blocks: Block[]): Buffer {
     { name: "word/document.xml", data: Buffer.from(documentXml(list, media), "utf8") },
     { name: "word/_rels/document.xml.rels", data: Buffer.from(documentRels(media), "utf8") },
     { name: "word/styles.xml", data: Buffer.from(STYLES_XML, "utf8") },
-    { name: "word/numbering.xml", data: Buffer.from(NUMBERING_XML, "utf8") },
+    { name: "word/numbering.xml", data: Buffer.from(numberingXml(orderedListCount(blocks)), "utf8") },
   ];
   for (const part of media) {
     if (part) entries.push({ name: `word/media/${part.name}`, data: part.bytes });
