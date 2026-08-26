@@ -124,6 +124,18 @@ $("base-url").oninput = () => {
   paintInstrument();
 };
 $("model").oninput = () => localStorage.setItem(MODEL_STORE, $("model").value.trim());
+
+/* Typing over the textarea abandons an uploaded document. Without this the
+   blocks from a previous upload survived: the run checked the pasted text while
+   Edit and Download still operated on the uploaded file, and the results were
+   titled after a file none of whose words had been checked. */
+$("text").oninput = () => {
+  if (!uploadedBlocks) return;
+  uploadedBlocks = null;
+  lastSource = { kind: "paste", filename: null };
+  const status = $("drop-status");
+  if (status) status.textContent = "";
+};
 $("key-show").onclick = () => {
   const hidden = $("key").type === "password";
   $("key").type = hidden ? "text" : "password";
@@ -219,28 +231,43 @@ $("run").onclick = async () => {
   }
   btn.disabled = true;
   $("status").textContent = "Checking…";
+  // SNAPSHOT, once, before the request. Reading the textarea again after the
+  // await would render findings over text the server never saw: the button is
+  // disabled during a run but the textarea is not, so an author who keeps
+  // typing shifted every span by the characters they added — and the marked
+  // view still announced itself as "your text exactly as you submitted it".
+  // Findings belong to the text that was checked, so that text is what is kept.
+  const submittedText = $("text").value;
+  const submittedBlocks = uploadedBlocks || window.plBlocks.textToBlocks_(submittedText);
+  const submittedSource = lastSource;
   try {
     const res = await fetch("/api/review", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        text: $("text").value,
+        text: submittedText,
         brief: $("brief").value || null,
         key: currentKey() || null,
         baseUrl: currentBaseUrl() || null,
         model: currentModel() || null,
-        source: lastSource,
+        source: submittedSource,
       }),
     }).then((r) => r.json());
     if (!res.ok) throw new Error(res.error);
     render({
       result: res.result, layers: res.layers, checks: res.checks,
-      text: $("text").value,
-      // Pasted text becomes paragraphs; an upload keeps its real structure.
-      blocks: uploadedBlocks || window.plBlocks.textToBlocks_($("text").value),
-      source: lastSource,
+      text: submittedText,
+      blocks: submittedBlocks,
+      source: submittedSource,
     }, true);
     $("status").textContent = "";
     goTo("results");
+    // If the author carried on typing while the check ran, the findings are
+    // already about an older draft. Say so rather than letting the results
+    // present themselves as current.
+    if ($("text").value !== submittedText) {
+      markStale();
+      $("status").textContent = "You changed the text while this ran — these findings are for the version that was checked.";
+    }
     loadHistory();
   } catch (err) {
     $("status").textContent = "The run failed — " + err.message;
@@ -826,6 +853,7 @@ $("recheck").onclick = async () => {
   try {
     const blocks = await currentBlocks();
     const { text } = window.plBlocks.serializeBlocks(blocks);
+    const checkedText = text;
     const res = await fetch("/api/review", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -835,14 +863,24 @@ $("recheck").onclick = async () => {
       }),
     }).then((r) => r.json());
     if (!res.ok) throw new Error(res.error);
-    $("text").value = text;
-    edited = false;
-    $("stale-bar").hidden = true;
-    $("manuscript").classList.remove("stale");
-    $("view-marked").textContent = "Issues marked";
-    render({ result: res.result, layers: res.layers, checks: res.checks, text, blocks, source: lastSource }, false);
+    $("text").value = checkedText;
+    render({ result: res.result, layers: res.layers, checks: res.checks, text: checkedText, blocks, source: lastSource }, false);
     loadHistory();
     goTo("results");
+    // Only clear the staleness this re-check actually resolved. The editor stays
+    // live while the request is in flight, so an author can type during it;
+    // clearing unconditionally declared those newer edits checked when they
+    // never were. Compare what is in the editor NOW against what was sent.
+    const nowBlocks = await currentBlocks();
+    const stillMatches = window.plBlocks.serializeBlocks(nowBlocks).text === checkedText;
+    if (stillMatches) {
+      edited = false;
+      $("stale-bar").hidden = true;
+      $("manuscript").classList.remove("stale");
+      $("view-marked").textContent = "Issues marked";
+    } else {
+      markStale();
+    }
   } catch (err) {
     $("stale-bar").querySelector(".fine").textContent = "Re-check failed — " + err.message;
   } finally {
@@ -927,10 +965,21 @@ async function loadHistory() {
       $("text").value = rec.input.text;
       $("brief").value = rec.input.brief || "";
       lastSource = rec.input.source;
+      // A restored run is a DIFFERENT document, so it must replace the current
+      // one completely — blocks included, and with the editor torn down.
+      // Passing no blocks left the editor seeded from `undefined`: Edit opened
+      // empty and Download posted an empty document. Worse, when an editor
+      // already existed it simply stayed, so the screen showed one paper's
+      // findings over another paper's text. History records predate the block
+      // model and store only text, so the blocks are rebuilt from it.
+      uploadedBlocks = null;
       render({
         result: rec.result, layers: rec.layers,
-        checks: rec.checks || [], text: rec.input.text, source: rec.input.source,
-      }, false);
+        checks: rec.checks || [],
+        text: rec.input.text,
+        blocks: rec.blocks || window.plBlocks.textToBlocks_(rec.input.text || ""),
+        source: rec.input.source,
+      }, true);
       goTo("results");
     };
   }

@@ -608,39 +608,66 @@ function renderTable(painter: Painter, rows: string[][], style: Style): void {
   // row onto every continuation page, or the numbers below lose their labels.
   const header = grid.length > 1 ? grid[0] : null;
 
+  /**
+   * Draw one row, SPLITTING it across pages when it is taller than the page.
+   *
+   * The obvious shape — break the page once, then draw — silently loses text: a
+   * cell holding more lines than a whole page still does not fit after the
+   * break, and everything past the bottom edge is painted outside the media box
+   * where no reader will ever show it. A long cell is not exotic; one paragraph
+   * pasted into a table produces it. So the row is emitted in as many slices as
+   * it needs, each sized to the room actually left, with the header repeated on
+   * every continuation the same way a normal row break repeats it.
+   */
   const drawRow = (cells: Bytes[], isHeader: boolean): void => {
     const font: FontKey = isHeader ? "bold" : "regular";
-    const cellLines = cells.map((cell, col) => wrap(cell, font, size, widths[col] - pad * 2));
-    const tallest = Math.max(1, ...cellLines.map((l) => l.length));
-    const rowHeight = tallest * leading + pad * 2;
-    if (rowHeight > painter.room && !painter.atPageTop) {
+    const wrapped = cells.map((cell, col) => wrap(cell, font, size, widths[col] - pad * 2));
+    let remaining = wrapped.map((lines) => lines.slice());
+
+    for (;;) {
+      const tallest = Math.max(1, ...remaining.map((l) => l.length));
+      const wanted = tallest * leading + pad * 2;
+      if (wanted > painter.room && !painter.atPageTop) {
+        painter.newPage();
+        if (header && !isHeader) drawRow(header, true);
+      }
+      // How many lines fit in the room that is actually left. At least one, so
+      // the loop always consumes something and can never spin.
+      const fits = Math.max(1, Math.floor((painter.room - pad * 2) / leading));
+      const take = Math.min(tallest, fits);
+      const slice = remaining.map((lines) => lines.slice(0, take));
+      const rowHeight = take * leading + pad * 2;
+
+      const top = painter.y;
+      // Three passes so a cell's fill never paints over its neighbour's rule.
+      let x = painter.left;
+      if (isHeader) {
+        for (let col = 0; col < columns; col++) {
+          painter.fillRect(x, top - rowHeight, widths[col], rowHeight, HEADER_GRAY);
+          x += widths[col];
+        }
+      }
+      x = painter.left;
+      for (let col = 0; col < columns; col++) {
+        painter.strokeRect(x, top - rowHeight, widths[col], rowHeight, RULE_GRAY, 0.7);
+        x += widths[col];
+      }
+      x = painter.left;
+      for (let col = 0; col < columns; col++) {
+        let baselineTop = top - pad;
+        for (const line of slice[col]) {
+          baselineTop -= leading;
+          painter.text(line, font, size, x + pad, baselineTop + size * 0.28);
+        }
+        x += widths[col];
+      }
+      painter.y = top - rowHeight;
+
+      remaining = remaining.map((lines) => lines.slice(take));
+      if (remaining.every((lines) => lines.length === 0)) break;
       painter.newPage();
       if (header && !isHeader) drawRow(header, true);
     }
-    const top = painter.y;
-    // Three passes so a cell's fill never paints over its neighbour's rule.
-    let x = painter.left;
-    if (isHeader) {
-      for (let col = 0; col < columns; col++) {
-        painter.fillRect(x, top - rowHeight, widths[col], rowHeight, HEADER_GRAY);
-        x += widths[col];
-      }
-    }
-    x = painter.left;
-    for (let col = 0; col < columns; col++) {
-      painter.strokeRect(x, top - rowHeight, widths[col], rowHeight, RULE_GRAY, 0.7);
-      x += widths[col];
-    }
-    x = painter.left;
-    for (let col = 0; col < columns; col++) {
-      let baselineTop = top - pad;
-      for (const line of cellLines[col]) {
-        baselineTop -= leading;
-        painter.text(line, font, size, x + pad, baselineTop + size * 0.28);
-      }
-      x += widths[col];
-    }
-    painter.y = top - rowHeight;
   };
 
   painter.y -= style.body * 0.3;
