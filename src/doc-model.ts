@@ -26,7 +26,12 @@ export type Block =
   | { type: "quote"; text: Inline }
   | { type: "code"; text: string }
   | { type: "table"; rows: Inline[][] }
-  | { type: "image"; src: string; caption?: string };
+  /**
+   * `caption` is the AUTHOR'S words and reaches the checks. `page` is display
+   * metadata — where a PDF painted the figure — and deliberately does not,
+   * because a label this tool generated is not something the author wrote.
+   */
+  | { type: "image"; src: string; caption?: string; page?: number };
 
 /** Where one block's text landed in the serialized manuscript. */
 export type BlockRange = {

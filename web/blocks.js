@@ -43,7 +43,15 @@ function toEditorData(blocks) {
       case "image":
         out.push({
           type: "image",
-          data: { url: block.src || "", caption: block.caption || "", withBorder: false, withBackground: false, stretched: false },
+          data: {
+            url: block.src || "",
+            // A generated page label is shown to the author as a starting
+            // caption they can accept or replace. It is not part of the
+            // document until they keep it, which is why it lives here and not
+            // in the block's `caption`.
+            caption: block.caption || (block.page ? `Figure from page ${block.page}` : ""),
+            withBorder: false, withBackground: false, stretched: false,
+          },
         });
         break;
       default:

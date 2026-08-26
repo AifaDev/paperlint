@@ -41,6 +41,7 @@ const { serialize } = require(dist("doc-model"));
 const { htmlToBlocks, textToBlocks } = require(dist("html-blocks"));
 const { blocksToDocx } = require(dist("export-docx"));
 const { blocksToPdf } = require(dist("export-pdf"));
+const { imagesFromPdf } = require(dist("pdf-images"));
 
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
 
@@ -311,13 +312,40 @@ function layerBreakdown(result, modelActive) {
 // File extraction (lazy imports so `npm run web` works before `npm install`
 // of the parsers errors usefully).
 async function extractPdf(buffer) {
-  const { extractText, getDocumentProxy } = await import("unpdf");
+  const { extractText, extractImages, getDocumentProxy } = await import("unpdf");
   const doc = await getDocumentProxy(new Uint8Array(buffer));
   const { totalPages, text } = await extractText(doc, { mergePages: true });
-  // A PDF has no headings, lists or tables to recover — it stores positioned
-  // glyphs, not structure — so its blocks are paragraphs. Word keeps far more,
-  // and the UI says which you got rather than implying they are equivalent.
-  return { blocks: textToBlocks(String(text ?? "")), pages: totalPages ?? null };
+
+  // A PDF stores positioned glyphs, not structure, so there are no headings or
+  // lists to recover and the prose becomes paragraphs. The figures ARE
+  // recoverable though, and losing them is what made an uploaded paper arrive
+  // with its figures missing.
+  const blocks = textToBlocks(String(text ?? ""));
+
+  // Images are appended rather than placed inline: a PDF records where a figure
+  // was PAINTED, not which paragraph it belongs to, so any inline position
+  // would be a guess. They are labelled with their page so a reader can place
+  // them, which is honest about what the format actually preserved.
+  let images = [];
+  try {
+    // A fresh proxy: pdf.js consumes the document while extracting text, and
+    // reusing the same one here yields nothing.
+    const forImages = await getDocumentProxy(new Uint8Array(buffer));
+    images = await imagesFromPdf((page) => extractImages(forImages, page), totalPages ?? 0);
+  } catch {
+    // One unreadable image must never cost the document its text.
+    images = [];
+  }
+  for (const image of images) {
+    // The page goes in `page`, NOT in `caption`: a caption is the author's own
+    // words and is fed to the 16 checks, so a label this tool invented would be
+    // words put in their mouth and then checked as if they had written them.
+    blocks.push({ type: "image", src: image.src, page: image.page });
+  }
+  // The count is not returned separately: the response already reports
+  // counts.images, derived from the blocks themselves, so a second number could
+  // only ever drift from the first.
+  return { blocks, pages: totalPages ?? null };
 }
 async function extractDocx(buffer) {
   const mammoth = (await import("mammoth")).default ?? (await import("mammoth"));
