@@ -21,7 +21,12 @@ npm run web        # builds, then serves http://localhost:4173
 ```
 
 Paste text, or upload a `.pdf` / `.docx` (extracted text fills the editor so you
-can see and trim exactly what will be reviewed). The deterministic layers need
+can see and trim exactly what will be reviewed). Uploads are laid out rather
+than merely decoded: two-column pages are read a column at a time, table rows
+stay on one line, and **a figure or table that is an image is marked `[image]`
+instead of being silently dropped** — a caption baked into a bitmap is
+unreadable, so the "missing figure" check abstains and says so rather than
+accusing you of referencing a figure that is plainly there. The deterministic layers need
 no key and no configuration. To activate the four AI checks, pick a provider
 and paste an API key into the key panel — it stays in your browser's
 localStorage, is sent only to your local server per run, and is never stored on
@@ -68,6 +73,7 @@ with `npm run bench:fetch`):
 | BM25 evidence selection | Recall@5 0.551 at full-paper scale vs a 0.010 lead-5 baseline | `bench-bm25-gate.json` |
 | Refutation gate | measured harmful (killed true positives, lowered precision) and **removed** — the measurement that killed it ships too | `bench-refutation*.json` |
 | Text-only ceiling on real published errors | 7 of SPOT's 91 errata-grade errors are reachable by any text-only reviewer | `spot-scope.json` |
+| Upload extraction | caption recall 0.833 → 1.0, sentence integrity 0.5 → 1.0, table-row integrity 0.5 → 1.0, float false positives 2 → 0 (synthetic corpus) | `bench-extraction.json` |
 
 Every eval record states what it does NOT measure. Read the caveats before
 quoting the headlines.

@@ -1,0 +1,267 @@
+{
+  "generated_by": "scripts/bench-extraction.mjs",
+  "provenance": "SYNTHETIC fixtures from tests/fixtures/build.mjs, generated so ground truth is exact. Scores reading order, caption recovery, table-row integrity and graphic detection for the extractor before and after layout reconstruction. Measures layouts we thought to build, NOT the distribution of real submissions — a regression floor, not a fidelity claim.",
+  "model_calls": 0,
+  "fixtures": {
+    "pdf-text-only": {
+      "kind": "pdf",
+      "note": null,
+      "baseline": {
+        "captions": {
+          "found": 2,
+          "total": 2
+        },
+        "float_findings": {
+          "got": 0,
+          "expected": 0
+        },
+        "float_kinds": [],
+        "table_rows": {
+          "intact": 3,
+          "total": 3
+        },
+        "graphics": {
+          "detected": 0,
+          "actual": 0
+        }
+      },
+      "current": {
+        "captions": {
+          "found": 2,
+          "total": 2
+        },
+        "float_findings": {
+          "got": 0,
+          "expected": 0
+        },
+        "float_kinds": [],
+        "table_rows": {
+          "intact": 3,
+          "total": 3
+        },
+        "graphics": {
+          "detected": 0,
+          "actual": 0
+        }
+      }
+    },
+    "pdf-mixed-text-and-image": {
+      "kind": "pdf",
+      "note": "Figure 2 and Table 1 are images; their captions are unreadable, so no float may be accused.",
+      "baseline": {
+        "captions": {
+          "found": 1,
+          "total": 1
+        },
+        "float_findings": {
+          "got": 1,
+          "expected": 0
+        },
+        "float_kinds": [
+          "float-missing:2"
+        ],
+        "graphics": {
+          "detected": 0,
+          "actual": 2
+        }
+      },
+      "current": {
+        "captions": {
+          "found": 1,
+          "total": 1
+        },
+        "float_findings": {
+          "got": 0,
+          "expected": 0
+        },
+        "float_kinds": [],
+        "graphics": {
+          "detected": 2,
+          "actual": 2
+        }
+      }
+    },
+    "pdf-all-images": {
+      "kind": "pdf",
+      "note": null,
+      "baseline": {
+        "captions": {
+          "found": 0,
+          "total": 0
+        },
+        "float_findings": {
+          "got": 0,
+          "expected": 0
+        },
+        "float_kinds": [],
+        "graphics": {
+          "detected": 0,
+          "actual": 2
+        }
+      },
+      "current": {
+        "captions": {
+          "found": 0,
+          "total": 0
+        },
+        "float_findings": {
+          "got": 0,
+          "expected": 0
+        },
+        "float_kinds": [],
+        "graphics": {
+          "detected": 2,
+          "actual": 2
+        }
+      }
+    },
+    "pdf-two-column-column-major": {
+      "kind": "pdf",
+      "note": null,
+      "baseline": {
+        "sentences": {
+          "intact": 2,
+          "total": 2
+        },
+        "reading_order": true,
+        "graphics": {
+          "detected": 0,
+          "actual": 0
+        }
+      },
+      "current": {
+        "sentences": {
+          "intact": 2,
+          "total": 2
+        },
+        "reading_order": true,
+        "graphics": {
+          "detected": 0,
+          "actual": 0
+        }
+      }
+    },
+    "pdf-two-column-row-major": {
+      "kind": "pdf",
+      "note": null,
+      "baseline": {
+        "sentences": {
+          "intact": 0,
+          "total": 2
+        },
+        "reading_order": true,
+        "graphics": {
+          "detected": 0,
+          "actual": 0
+        }
+      },
+      "current": {
+        "sentences": {
+          "intact": 2,
+          "total": 2
+        },
+        "reading_order": true,
+        "graphics": {
+          "detected": 0,
+          "actual": 0
+        }
+      }
+    },
+    "docx-table": {
+      "kind": "docx",
+      "note": null,
+      "baseline": {
+        "captions": {
+          "found": 1,
+          "total": 1
+        },
+        "float_findings": {
+          "got": 0,
+          "expected": 0
+        },
+        "float_kinds": [],
+        "table_rows": {
+          "intact": 0,
+          "total": 3
+        },
+        "graphics": {
+          "detected": 0,
+          "actual": 0
+        }
+      },
+      "current": {
+        "captions": {
+          "found": 1,
+          "total": 1
+        },
+        "float_findings": {
+          "got": 0,
+          "expected": 0
+        },
+        "float_kinds": [],
+        "table_rows": {
+          "intact": 3,
+          "total": 3
+        },
+        "graphics": {
+          "detected": 0,
+          "actual": 0
+        }
+      }
+    },
+    "docx-image-caption": {
+      "kind": "docx",
+      "note": "Figure 2's caption is recoverable from the image description.",
+      "baseline": {
+        "captions": {
+          "found": 1,
+          "total": 2
+        },
+        "float_findings": {
+          "got": 1,
+          "expected": 0
+        },
+        "float_kinds": [
+          "float-missing:2"
+        ],
+        "graphics": {
+          "detected": 0,
+          "actual": 1
+        }
+      },
+      "current": {
+        "captions": {
+          "found": 2,
+          "total": 2
+        },
+        "float_findings": {
+          "got": 0,
+          "expected": 0
+        },
+        "float_kinds": [],
+        "graphics": {
+          "detected": 1,
+          "actual": 1
+        }
+      }
+    }
+  },
+  "totals": {
+    "baseline": {
+      "caption_recall": 0.833,
+      "sentence_integrity": 0.5,
+      "table_row_integrity": 0.5,
+      "reading_order_correct": "2/2",
+      "graphics_detected": 0,
+      "float_false_positives": 2
+    },
+    "current": {
+      "caption_recall": 1,
+      "sentence_integrity": 1,
+      "table_row_integrity": 1,
+      "reading_order_correct": "2/2",
+      "graphics_detected": 1,
+      "float_false_positives": 0
+    }
+  }
+}

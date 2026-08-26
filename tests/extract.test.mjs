@@ -16,8 +16,9 @@ describe("extractContent — format sniffing", () => {
 
   test("empty content is safe", () => {
     // inlineBoundaries records where markup fused two text runs; empty input
-    // has none, and plain text can never have any.
-    assert.deepEqual(extractContent(null), { text: "", links: [], format: "plain", inlineBoundaries: [] });
+    // has none, and plain text can never have any. `graphics` counts figures
+    // the extractor could not read, and empty input has none of those either.
+    assert.deepEqual(extractContent(null), { text: "", links: [], format: "plain", inlineBoundaries: [], graphics: 0 });
   });
 });
 
