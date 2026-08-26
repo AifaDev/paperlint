@@ -71,20 +71,24 @@ comparative and iterative: paste, read findings, edit the manuscript, run again.
   a reason. A finding without a verbatim quote is dropped before display.
 - Partial runs are surfaced, never hidden — a budget ceiling reports what was
   dropped and why.
-- Terminology is checked against a glossary; the bundled example is 33 demo terms
-  and a real curated vocabulary is dropped in at `data/glossary.json`.
+- Terminology is checked against a glossary. The repo ships the ICAIRE AI
+  Glossary at `data/glossary.json` — 1,297 entries, of which 1,284 reach the
+  matcher (13 are duplicate spellings folded into their base term). A 33-term
+  example remains as the fallback when no glossary file is present, and
+  `PAPERLINT_GLOSSARY` overrides both.
 - Flow, user-confirmed: **one screen at a time**. Step 1 hand over the paper,
   step 2 what the checks found (this screen leads), step 3 the paper itself. A
   "Scan a new paper" control returns to step 1 from anywhere.
-- Step 3 has **two modes over one document**. "Issues marked" shows the
-  submitted text exactly as given, with findings anchored to real character
-  offsets — that view still guarantees nothing was altered. "Edit" makes the
-  same document editable in a block editor, and the result downloads as .docx
-  or .pdf. The tool still never changes the author's text on its own; editing
-  is something the author does deliberately.
-- Because findings carry character offsets, **an edit invalidates them**. The
-  first keystroke marks them stale and offers a re-check rather than letting a
-  highlight drift onto words it was never about.
+- Step 3 is **one editable document with the findings inside it**. Each finding
+  is a real <mark> element in the block editor, so it is carried along by the
+  browser as the author types and disappears with the phrase when the phrase is
+  deleted. There is no second read-only view: the author edits and downloads
+  the same document, as .docx or .pdf. The tool still never changes the
+  author's text on its own; every edit is one the author made.
+- **An edit invalidates the last run.** The page compares the document against
+  the text that was checked, and when they differ it says so, quiets the marks
+  to show they describe the previous draft, and offers Re-check — rather than
+  presenting a stale verdict as a live one.
 
 ## Brand Commitments
 
@@ -96,7 +100,7 @@ Glossary is required wherever the glossary layer is described.
 
 - Real measured eval records in `data/eval/` — benchmark numbers with their
   caveats attached, including which vocabulary produced which rate.
-- 244 passing tests.
+- 405 passing tests.
 - No customers, no testimonials, no pricing, no uptime or accuracy claims. None
   of these may be invented.
 

@@ -51,6 +51,12 @@
 
 /* --- reset ---------------------------------------------------------------- */
 *, *::before, *::after { box-sizing: border-box; }
+/* The UA styles `hidden` at the very bottom of the cascade, so ANY class rule
+   that sets `display` silently beats it — which is how two notice strips ended
+   up on screen at once, and why the AI notices never went away. Give the
+   attribute back its meaning once, for the whole page, instead of patching
+   every component that later learns to be a flex or a grid. */
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -314,48 +320,11 @@ button { font-family: var(--sans); cursor: pointer; }
 .ramp .item { display: inline-flex; align-items: center; gap: var(--s2); }
 .ramp .dot { border-radius: 50%; display: inline-block; }
 
-/* --- step 3: the annotated paper ------------------------------------------ */
-/* The most important thing this screen says is that nothing was edited. */
-.untouched {
-  display: flex; gap: var(--s3); align-items: flex-start;
-  margin: 0 0 var(--s4); padding: var(--s3) var(--s4);
-  border: 1px solid var(--rule-2); border-left: 3px solid var(--clean);
-  background: var(--paper-2);
-}
-.untouched svg { width: 18px; height: 18px; flex: none; color: var(--clean); margin-top: 2px; }
-.untouched p { margin: 0; font: 400 14px/1.55 var(--sans); color: var(--ink); max-width: var(--measure); }
-.untouched b { font-weight: 600; }
-
-.markkey { margin: 0 0 var(--s4); font: 400 13px/1.9 var(--sans); color: var(--ink-2); }
-.mk { color: var(--ink); }
-.mk-flag { background: #FFF3D6; box-shadow: inset 0 -2px 0 #E0A93B; padding: 0 2px; }
-.mk-sel { background: #FBDDD7; box-shadow: inset 0 -2px 0 var(--sev-major); padding: 0 2px; }
-.mk-pin, .manuscript .pin {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 15px; height: 15px; padding: 0 3px;
-  background: var(--ink); color: #fff; border-radius: 8px;
-  font: 600 10px/1 var(--mono);
-}
-
 .chart-wrap { margin: 0 0 var(--s5); }
 #chart { width: 100%; height: 210px; display: block; border: 1px solid var(--rule); background: var(--paper); cursor: crosshair; }
 .chart-wrap figcaption { margin-top: var(--s2); }
 .plate-body { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: var(--s5); align-items: start; }
 .plate-body.solo { grid-template-columns: minmax(0,1fr); }
-
-.manuscript {
-  font: 400 15px/1.9 var(--sans); color: var(--ink);
-  white-space: pre-wrap; word-wrap: break-word;
-  max-height: 600px; overflow-y: auto;
-  padding: var(--s5); border: 1px solid var(--rule); background: var(--paper);
-}
-/* A flagged span is highlighted and pinned with a number — it reads as an
-   annotation on the author's own words, never as an edit to them. */
-.manuscript mark { background: #FFF3D6; color: inherit; box-shadow: inset 0 -2px 0 #E0A93B; padding: 0 2px; cursor: pointer; }
-.manuscript mark:hover { background: #FFE9B8; }
-.manuscript mark.sel { background: #FBDDD7; box-shadow: inset 0 -2px 0 var(--sev-major); }
-.manuscript .pin { margin-left: 3px; vertical-align: 2px; }
-.manuscript mark.sel .pin { background: var(--sev-major); }
 
 .object-card { border: 1px solid var(--rule-2); background: var(--paper-2); padding: var(--s4); position: sticky; top: var(--s4); }
 .object-card .issue-meta { margin-bottom: var(--s2); }
@@ -501,7 +470,10 @@ button { font-family: var(--sans); cursor: pointer; }
   .steps li { font-size: 12px; padding: var(--s3); gap: var(--s2); }
   .steps li .n { width: 19px; height: 19px; font-size: 10px; }
   .plate-body { grid-template-columns: 1fr; }
-  .object-card { position: static; }
+  /* Stacked, the explanation would land under a paper several screens long —
+     clicking a highlight would look like it did nothing. Put it above the
+     paper instead, where the highlight the reader just tapped is. */
+  .object-card { position: static; order: -1; }
   .field-row { grid-template-columns: 1fr; gap: var(--s2); }
 
   /* The overview stacks; its dividing rules become horizontal. */
@@ -523,7 +495,6 @@ button { font-family: var(--sans); cursor: pointer; }
 
   .group-card-head { flex-wrap: wrap; }
   .info .tip { max-width: min(260px, 82vw); }
-  .manuscript { max-height: 460px; padding: var(--s4); }
   .foot { padding: var(--s5) var(--s4) var(--s7); }
   /* In column direction a flex-basis is a HEIGHT, so the 400px basis was
      forcing a dead gap above the button. */
@@ -588,50 +559,14 @@ button { font-family: var(--sans); cursor: pointer; }
 .editor .ce-popover { border: 1px solid var(--rule-2); border-radius: 8px; box-shadow: 0 10px 30px rgba(20,25,32,.14); }
 .editor .cdx-simple-image__caption { font: 400 13px/1.5 var(--sans); color: var(--ink-2); }
 
-/* --- the stale-marks bar -------------------------------------------------- */
-/* Edits invalidate every finding's offsets. Saying so is the honest move; a
-   highlight that silently drifts onto the wrong words is not. */
-.stale-bar {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: var(--s5); flex-wrap: wrap;
-  margin: 0 0 var(--s4); padding: var(--s4);
-  border: 1px solid var(--warn-bd); border-left: 3px solid var(--warn-fg);
-  background: var(--warn-bg);
-}
-.stale-bar > div { flex: 1 1 380px; min-width: 0; }
-.stale-bar b { font: 600 15px/1.5 var(--sans); color: var(--ink); }
-.stale-bar .fine { margin: var(--s2) 0 0; color: var(--warn-fg); }
-.stale-bar .primary { flex: none; }
-
-/* Marks in the read-only view, once the document has been edited elsewhere. */
-.manuscript.stale mark { background: var(--paper-3); box-shadow: inset 0 -2px 0 var(--rule-2); color: var(--ink-2); }
-.manuscript.stale .pin { background: var(--ink-3); }
-
-/* --- download controls ---------------------------------------------------- */
-.dl { display: flex; align-items: center; gap: var(--s2); }
-
 @media (max-width: 900px) {
-  .stale-bar { flex-direction: column; align-items: stretch; }
-  .stale-bar > div { flex: 0 1 auto; }
-  .stale-bar .primary { align-self: flex-start; }
-  .dl { width: 100%; }
   .editor { padding: var(--s4) var(--s3); }
 }
 
-/* --- step 3, marked view: the paper leads --------------------------------- */
+/* --- step 3: the paper leads ---------------------------------------------- */
 /* The banner, the severity legend, the mark key and the chart together pushed
-   the manuscript past the fold, so the one thing this screen exists to show
-   was the one thing not on it. They are now one line, and the chart folds. */
-.marked-note {
-  display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap;
-  margin: 0 0 var(--s4); padding: var(--s3) var(--s4);
-  border: 1px solid var(--rule); border-left: 3px solid var(--clean);
-  background: var(--paper-2);
-  font: 400 13.5px/1.7 var(--sans); color: var(--ink-2);
-}
-.marked-note b { color: var(--ink); font-weight: 600; }
-.marked-note .tick { width: 15px; height: 15px; color: var(--clean); flex: none; align-self: center; }
-
+   the paper past the fold, so the one thing this screen exists to show was the
+   one thing not on it. The notice is one strip now, and the chart folds. */
 .chart-fold { margin-top: var(--s5); border-top: 1px solid var(--rule); padding-top: var(--s3); }
 .chart-fold > summary {
   cursor: pointer; list-style: none;
@@ -644,5 +579,56 @@ button { font-family: var(--sans); cursor: pointer; }
 .chart-fold > summary:hover { color: var(--link-dark); }
 .chart-fold .ramp { margin-top: var(--s3); }
 
-/* Taller now that it is the first thing on the screen. */
-.manuscript { max-height: 640px; }
+/* --- highlights inside the editor ----------------------------------------- */
+/* The findings are real <mark> elements in the editable text. That is what
+   collapsed two views into one: a mark is moved by the browser as the author
+   types, so it stays on its words without any offset bookkeeping, and deleting
+   the phrase deletes the highlight with it. */
+/* One definition of what a finding looks like, shared by the marks inside the
+   editor and by the swatch in the notice that explains them — so the legend
+   cannot drift away from the thing it is describing. */
+.editor mark.pl-flag, .mk-flag {
+  background: #FFF3D6; box-shadow: inset 0 -2px 0 #E0A93B;
+  padding: 0 2px; border-radius: 2px;
+}
+.editor mark.pl-flag { cursor: pointer; }
+.editor mark.pl-flag:hover { background: #FFE9B8; }
+.editor mark.pl-flag.sel { background: #FBDDD7; box-shadow: inset 0 -2px 0 var(--sev-major); }
+/* Once the text has changed, the marks still show what the LAST check found —
+   true, but not a live verdict, so they read as quieter. */
+.editor.stale mark.pl-flag { background: var(--paper-3); box-shadow: inset 0 -2px 0 var(--rule-2); }
+
+/* --- step 3: one notice slot ---------------------------------------------- */
+/* Two stacked banners plus a duplicated Re-check button were competing for the
+   top of this page and pushing the paper — the thing being edited — down it.
+   One strip, one button, one place to look. */
+.note-strip {
+  display: grid; grid-template-columns: auto 1fr; gap: var(--s3);
+  align-items: start;
+  margin: 0 0 var(--s4); padding: var(--s3) var(--s4);
+  border: 1px solid var(--rule); border-left: 3px solid var(--clean);
+  background: var(--paper-2);
+}
+.note-strip p { margin: 0; font: 400 13.5px/1.65 var(--sans); color: var(--ink-2); max-width: var(--measure); }
+.note-strip b { color: var(--ink); font-weight: 600; }
+.note-strip .tick { width: 16px; height: 16px; color: var(--clean); margin-top: 2px; }
+.note-strip.is-stale { border-left-color: var(--warn-fg); background: var(--warn-bg); border-color: var(--warn-bd); }
+.note-strip.is-stale .tick { color: var(--warn-fg); }
+.note-strip.is-stale p { color: var(--warn-fg); }
+.note-strip.is-stale b { color: var(--ink); }
+
+/* A hairline between the re-check action and the two download actions: they do
+   different jobs and sat in one undifferentiated row. */
+.head-sep { width: 1px; height: 22px; background: var(--rule-2); margin: 0 var(--s1); }
+.head-actions { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
+
+.editor { min-height: 220px; }
+
+@media (max-width: 900px) {
+  .head-sep { display: none; }
+  .head-actions { display: grid; width: 100%; grid-template-columns: 1fr 1fr; }
+  .head-actions #recheck { grid-column: 1 / -1; }
+  .head-actions button { width: 100%; }
+  .note-strip { grid-template-columns: 1fr; }
+  .note-strip .tick { display: none; }
+}

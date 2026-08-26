@@ -57,7 +57,7 @@ function goTo(next) {
   $("new-scan").hidden = next === "compose";
   window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
   if (next === "results") fireReveal();
-  if (next === "text") drawChart();
+  if (next === "text") { mountEditor(); drawChart(); }
 }
 
 $("new-scan").onclick = () => goTo("compose");
@@ -283,11 +283,6 @@ function render(data, fresh) {
     if (editor && editor.destroy) { try { editor.destroy(); } catch {} }
     editor = null;
     edited = false;
-    const stale = $("stale-bar");
-    if (stale) stale.hidden = true;
-    $("manuscript").classList.remove("stale");
-    $("view-marked").textContent = "Issues marked";
-    showTextMode("marked");
   }
   const r = data.result;
   const c = r.counts || {};
@@ -388,8 +383,20 @@ function render(data, fresh) {
 
   $("object-card").hidden = true;
   document.querySelector(".plate-body").classList.add("solo");
-  paintManuscript();
   if (fresh) pendingReveal = true;
+  // The editor holds the document AND the highlights, so a new result means it
+  // has to be rebuilt rather than left showing the previous run's marks.
+  if (editor && editor.destroy) { try { editor.destroy(); } catch {} }
+  editor = null;
+  $("editor").dataset.wired = "";
+  $("editor").dataset.marksWired = "";
+  $("editor").classList.remove("stale");
+  $("editor").innerHTML = "";
+  edited = false;
+  $("note-clean").hidden = false;
+  $("note-stale").hidden = true;
+  $("recheck").classList.add("ghost");
+  $("recheck").classList.remove("primary");
 }
 
 /* The staggered reveal is armed by render() but only ever fired once the step
@@ -571,43 +578,18 @@ function addressOf(f) {
   return `${String(idx + 1).padStart(2, "0")}.${mine.indexOf(f) + 1}`;
 }
 
-/* --- the manuscript, marked in place -------------------------------------- */
-function paintManuscript() {
-  if (!current) return;
-  const text = current.text || "";
-  const marks = (current.result.findings || [])
-    .filter((f) => Number.isInteger(f.span_start) && Number.isInteger(f.span_end) && f.span_end > f.span_start)
-    .sort((a, b) => b.span_start - a.span_start);
-
-  const pieces = [];
-  let cursor = text.length;
-  for (const f of marks) {
-    if (f.span_end > cursor) continue; // overlapping spans: first one wins
-    pieces.push(esc(text.slice(f.span_end, cursor)));
-    const addr = addressOf(f);
-    pieces.push(
-      `<mark data-addr="${esc(addr)}" tabindex="0" role="button"` +
-      ` aria-label="Flagged: ${esc(text.slice(f.span_start, f.span_end))}. Issue ${esc(addr)}.">` +
-      esc(text.slice(f.span_start, f.span_end)) +
-      `<span class="pin" aria-hidden="true">${esc(addr)}</span></mark>`,
-    );
-    cursor = f.span_start;
-  }
-  pieces.push(esc(text.slice(0, cursor)));
-  $("manuscript").innerHTML = pieces.reverse().join("") || '<span class="empty">Nothing to show.</span>';
-
-  for (const m of $("manuscript").querySelectorAll("mark")) {
-    const pick = () => selectObject(m.dataset.addr, false);
-    m.onclick = pick;
-    m.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } };
-  }
-}
+/* The separate read-only manuscript pane is gone. Highlights now live inside
+   the editor as real <mark> elements, which is why there is one view rather
+   than two: a mark in the DOM is carried along by the browser as the author
+   types, so it needs none of the offset bookkeeping a detached copy did. */
 
 const findByAddress = (addr) => (current?.result.findings || []).find((f) => addressOf(f) === addr) || null;
 
 function selectObject(addr, scroll) {
   selectedId = addr;
-  for (const m of $("manuscript").querySelectorAll("mark")) m.classList.toggle("sel", m.dataset.addr === addr);
+  for (const m of $("editor").querySelectorAll("mark[data-addr]")) {
+    m.classList.toggle("sel", m.dataset.addr === addr);
+  }
   const f = findByAddress(addr);
   const card = $("object-card");
   if (!f) { card.hidden = true; card.parentElement.classList.add("solo"); return; }
@@ -615,12 +597,19 @@ function selectObject(addr, scroll) {
   const check = (current.checks || []).find((c) => c.id === f.check);
   card.hidden = false;
   card.innerHTML =
-    `<div class="obj-addr"><span>${esc(addr)}</span><span class="sep">${esc(check ? check.label : "")}</span></div>` +
-    `<p class="obj-msg">${esc(f.message_en)}</p>` +
-    (f.quoted_span ? `<p class="obj-quote">&ldquo;${esc(f.quoted_span)}&rdquo;</p>` : "");
+    `<div class="issue-meta"><span class="addr">${esc(addr)}</span><span>${esc(check ? check.label : "")}</span></div>` +
+    `<p class="issue-msg">${esc(f.message_en)}</p>` +
+    (f.quoted_span ? `<p class="quote-row"><span class="lead">Your text:</span> <span class="q">${esc(f.quoted_span)}</span></p>` : "") +
+    (f.suggestion ? `<p class="quote-row"><span class="lead">Suggested:</span> <span class="sugg">${esc(f.suggestion)}</span></p>` : "");
   if (scroll) {
-    const m = $("manuscript").querySelector(`mark[data-addr="${CSS.escape(addr)}"]`);
+    const m = $("editor").querySelector(`mark[data-addr="${CSS.escape(addr)}"]`);
     if (m) m.scrollIntoView({ block: "center", behavior: "smooth" });
+  } else if (window.matchMedia("(max-width: 900px)").matches) {
+    // Narrow layout: the card is stacked rather than beside the paper, so it
+    // may be off screen even though it just opened. Bring it into view — the
+    // minimum scroll, so tapping a highlight does not throw the reader across
+    // the document.
+    card.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
   drawChart();
 }
@@ -744,36 +733,34 @@ window.addEventListener("resize", () => {
 /* =============================================================================
    THE EDITOR
 
-   Step 3 has two modes over one document. "Issues marked" is the read-only view
-   whose whole value is that it shows the text exactly as submitted, with the
-   findings anchored to real offsets. "Edit" is the same document, editable.
+   Step 3 is ONE document: editable, with the findings marked inside it. The
+   earlier design put a read-only annotated copy beside an editable one, and the
+   reason was offsets — a finding carries character positions into the submitted
+   text, so inserting a word invalidates every position after it. Real <mark>
+   elements dissolve that problem: the browser moves a mark with its words, so
+   nothing has to be re-anchored and deleting the phrase deletes the highlight.
 
-   Editing invalidates the findings, and that is not a detail to paper over: a
-   finding carries character offsets into the submitted text, so the moment a
-   word is inserted every later offset is wrong. Rather than silently drifting
-   the highlights onto the wrong words, the marks are declared STALE and a
-   re-check is offered. An honest "these no longer apply" beats a highlight
-   pointing confidently at the wrong sentence.
+   What an edit still invalidates is the RUN. The findings describe the draft
+   that was checked, not the one now on screen, so the page compares the two and
+   says plainly when they differ, quiets the marks, and offers Re-check. An
+   honest "this describes your previous draft" beats a confident wrong verdict.
    ========================================================================== */
 
-function showTextMode(which) {
-  const marked = which === "marked";
-  $("view-marked").classList.toggle("active", marked);
-  $("view-edit").classList.toggle("active", !marked);
-  $("view-marked").setAttribute("aria-selected", String(marked));
-  $("view-edit").setAttribute("aria-selected", String(!marked));
-  $("pane-marked").hidden = !marked;
-  $("pane-edit").hidden = marked;
-  if (marked) drawChart(); else mountEditor();
-}
-$("view-marked").onclick = () => showTextMode("marked");
-$("view-edit").onclick = () => showTextMode("edit");
-
-/** Create the editor once, seeded from the document the run was made against. */
+/**
+ * Create the editor, seeded from the document AND from the findings, so the
+ * highlights live inside the editable text rather than in a separate read-only
+ * copy of it. A <mark> is carried along by the browser as the author types, so
+ * it stays on its words without any offset bookkeeping, and deleting the phrase
+ * deletes the highlight with it.
+ */
 async function mountEditor() {
   if (!current) return;
   if (editor) return;
-  const data = window.plBlocks.toEditorData(current.blocks || []);
+  const data = window.plBlocks.toEditorDataMarked(
+    current.blocks || [],
+    (current.result && current.result.findings) || [],
+    addressOf,
+  );
   editor = new window.EditorJS({
     holder: "editor",
     data,
@@ -788,6 +775,11 @@ async function mountEditor() {
       delimiter: { class: window.Delimiter },
       image: { class: window.SimpleImage },
       Marker: { class: window.Marker },
+      // Editor.js strips inline HTML down to what its tools declare as safe,
+      // and Marker alone allows only class — which would drop the data-addr
+      // that ties a highlight to its finding. This tool exists purely to widen
+      // that allowance; it never appears in the toolbar.
+      plFlag: { class: FlagMark },
       inlineCode: { class: window.InlineCode },
       underline: { class: window.Underline },
     },
@@ -811,6 +803,18 @@ async function mountEditor() {
     holder.addEventListener("cut", markStale);
   }
   try { await editor.isReady; } catch {}
+  wireMarkClicks();
+}
+
+/** Clicking a highlight inside the editor opens the finding behind it. */
+function wireMarkClicks() {
+  const holder = $("editor");
+  if (holder.dataset.marksWired === "1") return;
+  holder.dataset.marksWired = "1";
+  holder.addEventListener("click", (event) => {
+    const mark = event.target.closest && event.target.closest("mark[data-addr]");
+    if (mark) selectObject(mark.dataset.addr, false);
+  });
 }
 
 /**
@@ -839,11 +843,15 @@ async function refreshStale() {
     return;
   }
   edited = !same;
-  $("stale-bar").hidden = same;
-  // Grey the marks in the other view too, so switching back cannot present
-  // stale highlights as if they were current.
-  $("manuscript").classList.toggle("stale", !same);
-  $("view-marked").textContent = same ? "Issues marked" : "Issues marked (stale)";
+  // Fade the highlights in place: they still mark what the LAST check found,
+  // which is true and useful, but they must not look like a live verdict on
+  // text that has changed since.
+  $("editor").classList.toggle("stale", !same);
+  $("note-clean").hidden = !same;
+  $("note-stale").hidden = same;
+  // The button that resolves the state is the one that should draw the eye.
+  $("recheck").classList.toggle("primary", !same);
+  $("recheck").classList.toggle("ghost", same);
 }
 
 /** Coalesce keystrokes: the comparison reads the whole document. */
@@ -851,6 +859,22 @@ let staleTimer = null;
 function markStale() {
   clearTimeout(staleTimer);
   staleTimer = setTimeout(refreshStale, 180);
+}
+
+/**
+ * A do-nothing inline tool whose only job is its sanitize config: it tells
+ * Editor.js that <mark data-addr> may survive, which is what keeps a highlight
+ * connected to the finding it came from.
+ */
+class FlagMark {
+  static get isInline() { return true; }
+  static get sanitize() { return { mark: { class: true, "data-addr": true } }; }
+  // Never offered in the inline toolbar: these marks come from the checks, not
+  // from the author drawing them by hand.
+  static get title() { return "Finding"; }
+  render() { const el = document.createElement("button"); el.type = "button"; el.hidden = true; return el; }
+  surround() {}
+  checkState() { return false; }
 }
 
 /** The document as it now stands in the editor, or the original if untouched. */
@@ -861,8 +885,9 @@ async function currentBlocks() {
 }
 
 /* Re-check: run the 16 checks against the EDITED text and repoint everything. */
-$("recheck").onclick = async () => {
+async function runRecheck() {
   const btn = $("recheck");
+  const was = btn.textContent;
   btn.disabled = true;
   btn.textContent = "Checking…";
   try {
@@ -881,18 +906,19 @@ $("recheck").onclick = async () => {
     $("text").value = checkedText;
     render({ result: res.result, layers: res.layers, checks: res.checks, text: checkedText, blocks, source: lastSource }, false);
     loadHistory();
-    goTo("results");
+    goTo("text");
     // render() has just set current.text to what was actually checked, so the
     // one comparison decides this too: if the author typed while the re-check
     // was in flight, the document already differs and stays marked stale.
     await refreshStale();
   } catch (err) {
-    $("stale-bar").querySelector(".fine").textContent = "Re-check failed — " + err.message;
+    $("status") && ($("status").textContent = "Re-check failed — " + err.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = "Re-check the 16 checks";
+    btn.textContent = was;
   }
-};
+}
+$("recheck").onclick = runRecheck;
 
 /* --- download ------------------------------------------------------------- */
 /* The export runs server-side because that is where the document writers live;
@@ -924,8 +950,10 @@ async function download(format) {
     setTimeout(() => { btn.textContent = was; }, 1600);
   } catch (err) {
     btn.textContent = "Failed";
-    $("stale-bar").hidden = false;
-    $("stale-bar").querySelector(".fine").textContent = "Download failed — " + err.message;
+    // Say WHY on the page, not only on the button: a button that flips to
+    // "Failed" and back tells the author nothing they can act on.
+    $("note-stale").hidden = false;
+    $("note-stale").querySelector("p").textContent = "Download failed — " + err.message;
     setTimeout(() => { btn.textContent = was; }, 2200);
   } finally {
     btn.disabled = false;

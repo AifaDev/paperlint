@@ -24,14 +24,15 @@
   screen survives greyscale and colour-blindness.
 
   THREE STEPS, ONE ON SCREEN AT A TIME: hand over the paper, read what the 16
-  checks found, then work in the text. Step 3 holds two modes over one document:
-  "Issues marked" shows the submitted text untouched with findings anchored to
-  real offsets, and "Edit" makes the same document editable.
+  checks found, then work in the text. Step 3 is ONE editable document with the
+  findings marked inside it — not a read-only copy beside an editable one. Each
+  highlight is a real <mark> in the text, so it rides along as the author types
+  and goes away with the phrase when the phrase is deleted.
 
   THE PROMISE THAT CONSTRAINS EVERYTHING: a silence must be as trustworthy as a
-  finding. A check that did not run says so, with its reason. Edits invalidate
-  the offsets, so the first keystroke marks the findings stale rather than
-  letting a highlight drift onto the wrong words.
+  finding. A check that did not run says so, with its reason. An edit makes the
+  last run out of date, so the page says the document has changed and quiets
+  the marks rather than presenting a stale verdict as a live one.
 -->
 
 <a class="skip" href="#step-compose">Skip to the manuscript field</a>
@@ -252,68 +253,50 @@
     <div class="panel-head">
       <h2>Your paper</h2>
       <div class="head-actions">
-        <div class="seg" role="tablist" aria-label="How to view your paper">
-          <button id="view-marked" class="seg-btn active" role="tab" aria-selected="true" type="button">Issues marked</button>
-          <button id="view-edit" class="seg-btn" role="tab" aria-selected="false" type="button">Edit</button>
-        </div>
-        <div class="dl">
-          <button id="dl-docx" class="ghost" type="button">Download .docx</button>
-          <button id="dl-pdf" class="primary" type="button">Download PDF</button>
-        </div>
+        <button id="recheck" class="ghost" type="button">Re-check</button>
+        <span class="head-sep" aria-hidden="true"></span>
+        <button id="dl-docx" class="ghost" type="button">Download .docx</button>
+        <button id="dl-pdf" class="primary" type="button">Download PDF</button>
       </div>
     </div>
 
-    <!-- Reading mode: the text exactly as submitted, with the issues marked. -->
-    <div id="pane-marked">
-      <!-- One compact line, not three stacked banners: the paper itself is what
-           this screen is for, and every row above it pushed the highlights
-           below the fold. -->
-      <p class="marked-note">
-        <svg viewBox="0 0 20 20" aria-hidden="true" class="tick">
-          <path d="M4 10.5l3.5 3.5L16 5.5" fill="none" stroke="currentColor" stroke-width="2.2"/>
-        </svg>
-        <b>Your text, exactly as submitted.</b> Nothing changed —
-        <span class="mk mk-flag">highlights<span class="mk-pin">01.1</span></span> are annotations,
-        numbered to match the issue list. Switch to <b>Edit</b> to make changes.
-      </p>
-
-      <div class="plate-body">
-        <div id="manuscript" class="manuscript"></div>
-        <aside id="object-card" class="object-card" hidden></aside>
-      </div>
-
-      <!-- The map comes after the territory: useful for seeing where problems
-           cluster, but not worth the first screen. -->
-      <details class="chart-fold">
-        <summary>Where the issues fall in the paper</summary>
-        <div class="ramp" id="ramp-text"></div>
-        <figure class="chart-wrap">
-          <canvas id="chart" role="img"
-            aria-label="Every issue plotted by where it occurs in the paper, grouped by check, sized by severity."></canvas>
-          <figcaption class="fine">
-            Each dot is one issue, placed where it occurs — left is the beginning, right is the end.
-            Bigger dots are more serious. Click a dot to jump to it.
-          </figcaption>
-        </figure>
-      </details>
+    <!-- ONE notice slot, not two stacked banners. It says either "here is how
+         this works" or "you have edited this" — never both, because they were
+         competing for the top of the page and pushing the paper off it. -->
+    <div id="note-clean" class="note-strip">
+      <svg viewBox="0 0 20 20" aria-hidden="true" class="tick">
+        <path d="M4 10.5l3.5 3.5L16 5.5" fill="none" stroke="currentColor" stroke-width="2.2"/>
+      </svg>
+      <p><b>Edit your paper here.</b>
+        <span class="mk-flag">Highlighted text</span> is what the checks found — click a highlight
+        to see why. Fix or delete the words and the highlight goes with them.</p>
     </div>
 
-    <!-- Editing mode: the same document, editable. -->
-    <div id="pane-edit" hidden>
-      <div id="stale-bar" class="stale-bar" hidden>
-        <div>
-          <b>You have edited this paper.</b>
-          <p class="fine">The issues below were found in the version you submitted, so they no longer
-            line up with what you have written. Re-check to find the issues in your edited text.</p>
-        </div>
-        <button id="recheck" class="primary" type="button">Re-check the 16 checks</button>
-      </div>
-      <p class="fine editor-hint">
-        Click any block to edit it. Press <kbd>Tab</kbd> for headings, lists, quotes, code and tables,
-        or use the <b>+</b> button. Your changes stay on this machine.
-      </p>
+    <div id="note-stale" class="note-strip is-stale" hidden>
+      <svg viewBox="0 0 20 20" aria-hidden="true" class="tick">
+        <path d="M10 3v9M10 15.5v1.2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+      <p><b>You have edited this paper.</b> The highlights still mark what the last check found.
+        Use <b>Re-check</b> above to find the issues in your edited text.</p>
+    </div>
+
+    <div class="plate-body">
       <div id="editor" class="editor"></div>
+      <aside id="object-card" class="object-card" hidden></aside>
     </div>
+
+    <details class="chart-fold">
+      <summary>Where the issues fall in the paper</summary>
+      <div class="ramp" id="ramp-text"></div>
+      <figure class="chart-wrap">
+        <canvas id="chart" role="img"
+          aria-label="Every issue plotted by where it occurs in the paper, grouped by check, sized by severity."></canvas>
+        <figcaption class="fine">
+          Each dot is one issue, placed where it occurs — left is the beginning, right is the end.
+          Bigger dots are more serious. Click a dot to jump to it.
+        </figcaption>
+      </figure>
+    </details>
 
     <div class="stepnav">
       <button id="back-results" class="ghost" type="button">Back to what we found</button>
