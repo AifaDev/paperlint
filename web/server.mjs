@@ -532,6 +532,27 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(404).end("not found");
 });
 
+// A port collision is the one startup failure a normal user will actually hit,
+// usually from their own earlier run. An unhandled 'error' event prints a Node
+// stack trace, which names the syscall but not the fix.
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(
+      `\nPort ${PORT} is already in use, so paperlint did not start.\n\n` +
+        `Most likely an earlier paperlint is still running. Either stop it:\n` +
+        `    lsof -ti:${PORT} | xargs kill\n\n` +
+        `or run this one on a different port:\n` +
+        `    PAPERLINT_PORT=${PORT + 1} npm run web\n`,
+    );
+  } else if (err.code === "EACCES") {
+    console.error(`\nNot allowed to listen on port ${PORT}. Ports below 1024 need elevated rights;\n` +
+      `pick a higher one:  PAPERLINT_PORT=4173 npm run web\n`);
+  } else {
+    console.error(`\npaperlint could not start: ${err.message}\n`);
+  }
+  process.exit(1);
+});
+
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`paperlint: http://localhost:${PORT}  (Ctrl-C to stop)`);
 });
