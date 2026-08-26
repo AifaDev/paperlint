@@ -37,6 +37,8 @@ if (!fs.existsSync(dist("index"))) {
 const { runReviewPipeline } = require(dist("index"));
 const { toMatcherTerms } = require(dist("matcher"));
 const { DEFAULT_MODEL, DEFAULT_BASE_URL, resolveBaseUrl } = require(dist("model"));
+const { serialize } = require(dist("doc-model"));
+const { htmlToBlocks, textToBlocks } = require(dist("html-blocks"));
 
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
 
@@ -310,12 +312,30 @@ async function extractPdf(buffer) {
   const { extractText, getDocumentProxy } = await import("unpdf");
   const doc = await getDocumentProxy(new Uint8Array(buffer));
   const { totalPages, text } = await extractText(doc, { mergePages: true });
-  return { text: String(text ?? ""), pages: totalPages ?? null };
+  // A PDF has no headings, lists or tables to recover — it stores positioned
+  // glyphs, not structure — so its blocks are paragraphs. Word keeps far more,
+  // and the UI says which you got rather than implying they are equivalent.
+  return { blocks: textToBlocks(String(text ?? "")), pages: totalPages ?? null };
 }
 async function extractDocx(buffer) {
   const mammoth = (await import("mammoth")).default ?? (await import("mammoth"));
-  const out = await mammoth.extractRawText({ buffer });
-  return { text: String(out.value ?? ""), pages: null };
+  // convertToHtml, NOT extractRawText. Raw text flattens a table into a run of
+  // loose paragraphs — "Method / Accuracy / Baseline / 0.72" — which is why an
+  // uploaded table used to disappear. HTML keeps the heading levels, the
+  // emphasis, the list structure, the table grid, and the embedded images.
+  const out = await mammoth.convertToHtml(
+    { buffer },
+    {
+      // Images ride inline as data URIs so nothing has to be stored or served
+      // separately, and the document stays a single self-contained object.
+      convertImage: mammoth.images.imgElement(async (image) => {
+        const body = await image.read("base64");
+        return { src: `data:${image.contentType};base64,${body}` };
+      }),
+    },
+  );
+  const blocks = htmlToBlocks(String(out.value ?? ""));
+  return { blocks, pages: null };
 }
 
 const MAX_UPLOAD = 25 * 1024 * 1024;
@@ -410,9 +430,27 @@ const server = http.createServer(async (req, res) => {
           return json(res, 422, { ok: false, error: "legacy .doc is not supported — save as .docx and retry" });
         else return json(res, 422, { ok: false, error: "unrecognized file type — upload a .pdf or .docx" });
 
-        const { text: raw, pages } = kind === "pdf" ? await extractPdf(buffer) : await extractDocx(buffer);
+        const { blocks: rawBlocks, pages } = kind === "pdf" ? await extractPdf(buffer) : await extractDocx(buffer);
+        // Blocks are the document; the text is derived from them, so the two can
+        // never disagree about what the manuscript says.
+        let blocks = rawBlocks;
+        let raw = serialize(blocks).text;
         const truncated = raw.length > MAX_TEXT;
-        const text = truncated ? raw.slice(0, MAX_TEXT) : raw;
+        if (truncated) {
+          // Drop whole blocks rather than slicing mid-block, so the ceiling can
+          // never leave a half-sentence or a half-table behind.
+          const kept = [];
+          let used = 0;
+          for (const block of blocks) {
+            const size = serialize([block]).text.length + 2;
+            if (used + size > MAX_TEXT) break;
+            kept.push(block);
+            used += size;
+          }
+          blocks = kept;
+          raw = serialize(blocks).text;
+        }
+        const text = raw;
         if (text.trim().length === 0)
           return json(res, 422, { ok: false, error: "no extractable text (scanned or encrypted file?)" });
         json(res, 200, {
@@ -420,6 +458,14 @@ const server = http.createServer(async (req, res) => {
           kind,
           filename,
           text,
+          blocks,
+          rich: kind === "docx",
+          counts: {
+            tables: blocks.filter((b) => b.type === "table").length,
+            images: blocks.filter((b) => b.type === "image").length,
+            headings: blocks.filter((b) => b.type === "heading").length,
+            lists: blocks.filter((b) => b.type === "list").length,
+          },
           chars: text.length,
           words: text.split(/\s+/).filter(Boolean).length,
           pages,
