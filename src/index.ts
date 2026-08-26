@@ -143,6 +143,15 @@ export type PipelineResult = {
   /** What a ceiling prevented. Never a silent truncation. */
   dropped: string[];
   content_hash: string;
+  /**
+   * Graphics in the document that could not be read as text. Reported rather
+   * than merely acted on: a run over a manuscript whose figures are all
+   * screenshots is a materially weaker review than one over the same paper
+   * typeset, and the reader is entitled to know which one they got.
+   */
+  graphics: number;
+  /** Set when the graphics count suppressed the missing-float direction. */
+  float_missing_skipped_reason: string | null;
   findings: PipelineFinding[];
   counts: {
     words: number;
@@ -306,6 +315,8 @@ export async function runReviewPipeline(input: PipelineInput, deps: PipelineDeps
       partial: false,
       dropped: [],
       content_hash: contentHash,
+      graphics: extracted.graphics,
+      float_missing_skipped_reason: null,
       findings: [],
       counts: emptyCounts,
       model_verdicts: null,
@@ -507,8 +518,11 @@ export async function runReviewPipeline(input: PipelineInput, deps: PipelineDeps
   // list, so most submissions produce nothing here.
   const { findings: rawReferences, stats: referenceStats } = checkReferences(extracted.text, identifiers);
   // Float cross-references ride the same layer: deterministic, offline, and
-  // silent unless the document actually declares figure/table captions.
-  rawReferences.push(...checkFloats(extracted.text).findings);
+  // silent unless the document actually declares figure/table captions. The
+  // graphics count is what stops it accusing an author of a missing figure that
+  // is really a figure WE could not read — see ExtractedContent.graphics.
+  const floats = checkFloats(extracted.text, extracted.graphics);
+  rawReferences.push(...floats.findings);
   const referenceFindings: PipelineFinding[] = rawReferences.map((finding) => ({
     category: "reference",
     check: finding.kind,
@@ -541,6 +555,8 @@ export async function runReviewPipeline(input: PipelineInput, deps: PipelineDeps
     partial: budget?.exhausted ?? false,
     dropped: budget?.dropped ?? [],
     content_hash: contentHash,
+    graphics: extracted.graphics,
+    float_missing_skipped_reason: floats.stats.missing_skipped_reason,
     findings,
     counts: {
       words: extracted.text.split(/\s+/).filter(Boolean).length,

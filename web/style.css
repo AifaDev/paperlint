@@ -485,6 +485,14 @@ button { font-family: var(--sans); cursor: pointer; }
 
 .check-name { font: 600 14.5px/1.35 var(--sans); color: var(--ink); }
 .check-about { display: block; margin-top: 3px; font: 400 13px/1.45 var(--sans); color: var(--ink-2); max-width: 74ch; }
+/* The stated reason a check produced nothing. Set apart from the description
+   above it, because that says what the check does and this says why it did not
+   do it here. */
+.check-reason {
+  display: block; margin-top: 5px; padding-inline-start: 9px;
+  border-inline-start: 2px solid var(--amber);
+  font: 400 12.5px/1.45 var(--sans); color: var(--ink-2); max-width: 74ch;
+}
 .check-count {
   font: 700 17px/1 var(--sans); text-align: right; min-width: 1.6ch;
   color: var(--ink-3); font-variant-numeric: tabular-nums;

@@ -95,7 +95,12 @@ function walk(dir) {
         hits += 1;
       }
     }
-    const rel = path.relative(ROOT, file);
+    // POSIX separators, because ATTRIBUTION_FILES is written with them. On
+    // Windows path.relative yields "data\glossary.json", which matched no
+    // exemption, so every NESTED attribution file failed the gate while the
+    // top-level ones passed — CI is ubuntu-only, so the whole gate was simply
+    // unrunnable on a Windows checkout.
+    const rel = path.relative(ROOT, file).split(path.sep).join("/");
     for (const pattern of FORBIDDEN) {
       if (ATTRIBUTION_FILES.has(rel) && ATTRIBUTABLE.has(pattern)) continue;
       let at = lower.indexOf(pattern.toLowerCase());

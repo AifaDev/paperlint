@@ -264,6 +264,14 @@ function checkBreakdown(result, layers) {
     const layer = byLayer[check.layer];
     entry.status = layer ? layer.status : "ran";
     if (layer && layer.reason) entry.reason = layer.reason;
+    // The missing-figure check abstains on its own, independently of its
+    // layer: a document whose figures are images cannot be asked whether a
+    // figure is absent. Reported here rather than silently returning zero,
+    // because "clean" and "unanswerable" must never look the same.
+    if (check.id === "float-missing" && result.float_missing_skipped_reason) {
+      entry.status = "abstained";
+      entry.reason = result.float_missing_skipped_reason;
+    }
     return entry;
   });
 }
@@ -304,18 +312,12 @@ function layerBreakdown(result, modelActive) {
 }
 
 // ---------------------------------------------------------------------------
-// File extraction (lazy imports so `npm run web` works before `npm install`
-// of the parsers errors usefully).
-async function extractPdf(buffer) {
-  const { extractText, getDocumentProxy } = await import("unpdf");
-  const doc = await getDocumentProxy(new Uint8Array(buffer));
-  const { totalPages, text } = await extractText(doc, { mergePages: true });
-  return { text: String(text ?? ""), pages: totalPages ?? null };
-}
-async function extractDocx(buffer) {
-  const mammoth = (await import("mammoth")).default ?? (await import("mammoth"));
-  const out = await mammoth.extractRawText({ buffer });
-  return { text: String(out.value ?? ""), pages: null };
+// File extraction. The parsers and the layout reconstruction live in
+// web/upload.mjs; imported lazily so `npm run web` still starts and errors
+// usefully when the optional parser dependencies are absent.
+async function extractUpload(kind, buffer) {
+  const { readPdf, readDocx } = await import("./upload.mjs");
+  return kind === "pdf" ? readPdf(buffer) : readDocx(buffer);
 }
 
 const MAX_UPLOAD = 25 * 1024 * 1024;
@@ -410,11 +412,20 @@ const server = http.createServer(async (req, res) => {
           return json(res, 422, { ok: false, error: "legacy .doc is not supported — save as .docx and retry" });
         else return json(res, 422, { ok: false, error: "unrecognized file type — upload a .pdf or .docx" });
 
-        const { text: raw, pages } = kind === "pdf" ? await extractPdf(buffer) : await extractDocx(buffer);
+        const { text: raw, pages, graphics, columns } = await extractUpload(kind, buffer);
         const truncated = raw.length > MAX_TEXT;
         const text = truncated ? raw.slice(0, MAX_TEXT) : raw;
-        if (text.trim().length === 0)
-          return json(res, 422, { ok: false, error: "no extractable text (scanned or encrypted file?)" });
+        if (text.trim().length === 0) {
+          // Distinguish "there is no text layer" from "there is nothing here".
+          // A scanned paper is a specific, common, fixable situation and saying
+          // so is more use than a generic parse failure.
+          return json(res, 422, {
+            ok: false,
+            error: graphics
+              ? `no text layer — this looks like a scanned document (${graphics} image${graphics === 1 ? "" : "s"}, no selectable text). Run OCR on it first, or paste the text.`
+              : "no extractable text (scanned or encrypted file?)",
+          });
+        }
         json(res, 200, {
           ok: true,
           kind,
@@ -424,6 +435,10 @@ const server = http.createServer(async (req, res) => {
           words: text.split(/\s+/).filter(Boolean).length,
           pages,
           truncated,
+          // What could NOT be read, reported at the point the author can still
+          // do something about it — before the review, not after.
+          graphics,
+          columns,
         });
       } catch (error) {
         json(res, 422, { ok: false, error: error instanceof Error ? error.message : String(error) });
@@ -538,11 +553,18 @@ const server = http.createServer(async (req, res) => {
 server.on("error", (err) => {
   if (err.code === "EADDRINUSE") {
     console.error(
+      // Platform-specific, because the advice is worthless otherwise: `lsof`
+      // does not exist on Windows, and neither does VAR=value command syntax.
+      // A recovery instruction that cannot be run is not a recovery instruction.
       `\nPort ${PORT} is already in use, so paperlint did not start.\n\n` +
         `Most likely an earlier paperlint is still running. Either stop it:\n` +
-        `    lsof -ti:${PORT} | xargs kill\n\n` +
+        (process.platform === "win32"
+          ? `    powershell -Command "Get-NetTCPConnection -LocalPort ${PORT} -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }"\n\n`
+          : `    lsof -ti:${PORT} | xargs kill\n\n`) +
         `or run this one on a different port:\n` +
-        `    PAPERLINT_PORT=${PORT + 1} npm run web\n`,
+        (process.platform === "win32"
+          ? `    $env:PAPERLINT_PORT=${PORT + 1}; npm run web\n`
+          : `    PAPERLINT_PORT=${PORT + 1} npm run web\n`),
     );
   } else if (err.code === "EACCES") {
     console.error(`\nNot allowed to listen on port ${PORT}. Ports below 1024 need elevated rights;\n` +

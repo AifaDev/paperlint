@@ -307,7 +307,21 @@ function numbersAfterFamily(text: string, from: number): { numbers: number[]; en
   return { numbers, end: i };
 }
 
-export function checkFloats(text: string): { findings: ReferenceFinding[]; captions: number } {
+export type FloatStats = {
+  captions: number;
+  /** Set when `float-missing` was suppressed, naming what prevented it. */
+  missing_skipped_reason: string | null;
+};
+
+/**
+ * @param graphics - graphics in the document that could not be read as text
+ *   (see ExtractedContent.graphics). NOT a detail: it decides whether the
+ *   "this float does not exist" direction is answerable at all.
+ */
+export function checkFloats(
+  text: string,
+  graphics = 0,
+): { findings: ReferenceFinding[]; captions: number; stats: FloatStats } {
   const flowedForOffsets = text; // captions are matched on the RAW text (line anchors)
   const captions = new Map<string, { at: number; label: string }>();
   for (const match of flowedForOffsets.matchAll(CAPTION_RE)) {
@@ -316,7 +330,8 @@ export function checkFloats(text: string): { findings: ReferenceFinding[]; capti
     if (!captions.has(key)) captions.set(key, { at: match.index ?? 0, label: key });
   }
   const findings: ReferenceFinding[] = [];
-  if (captions.size === 0) return { findings, captions: 0 };
+  const stats: FloatStats = { captions: captions.size, missing_skipped_reason: null };
+  if (captions.size === 0) return { findings, captions: 0, stats };
 
   // Mentions anywhere EXCEPT the caption lines themselves.
   const mentioned = new Set<string>();
@@ -351,7 +366,23 @@ export function checkFloats(text: string): { findings: ReferenceFinding[]; capti
   // the same FAMILY the document actually uses, and only when at least one
   // caption exists — otherwise every "see Figure 3" in a captionless paste
   // would be accused.
+  //
+  // AND ONLY WHEN WE COULD READ THE WHOLE DOCUMENT. An uploaded manuscript
+  // whose figures are pasted screenshots carries its captions inside the
+  // bitmaps, where no extractor reaches them. "No caption found" then means
+  // "we cannot see it", not "it is not there", and the two are indistinguishable
+  // from inside this function — so the only honest move is to abstain and say
+  // why. Measured on the mixed fixture (tests/fixtures/build.mjs): ONE readable
+  // caption was enough to arm this direction against every image-based float in
+  // the same family, which is the false positive this guard removes. Direction 1
+  // above is unaffected: a caption we DID read and nobody points at is sound
+  // regardless of what else the page holds.
   const families = new Set([...captions.keys()].map((key) => key.split(" ")[0]));
+  if (graphics > 0) {
+    stats.missing_skipped_reason =
+      `${graphics} graphic${graphics === 1 ? "" : "s"} could not be read as text, so a float with no readable caption cannot be told apart from one whose caption is inside an image`;
+    return { findings, captions: captions.size, stats };
+  }
   for (const key of mentioned) {
     if (captions.has(key)) continue;
     if (!families.has(key.split(" ")[0])) continue;
@@ -365,7 +396,7 @@ export function checkFloats(text: string): { findings: ReferenceFinding[]; capti
       detail: `The text references ${key}, but no such ${key.split(" ")[0].toLowerCase()} caption exists in the document.`,
     });
   }
-  return { findings, captions: captions.size };
+  return { findings, captions: captions.size, stats };
 }
 
 const LABEL: Record<ReferenceFinding["kind"], string> = {
@@ -377,6 +408,18 @@ const LABEL: Record<ReferenceFinding["kind"], string> = {
   "float-missing": "a reference to a figure or table that does not exist",
 };
 
+/** Floats are not in the reference list, so they do not get its suffix. Before
+ *  this split, a figure finding read "...the text never points at IN THE
+ *  REFERENCE LIST", naming the wrong part of the document back at the author. */
+const WHERE: Record<ReferenceFinding["kind"], string> = {
+  "cited-not-listed": "in the reference list",
+  "listed-not-cited": "in the reference list",
+  "duplicate-reference": "in the reference list",
+  "reference-missing-year": "in the reference list",
+  "float-never-referenced": "among the figures and tables",
+  "float-missing": "among the figures and tables",
+};
+
 export function referenceMessage(finding: ReferenceFinding): string {
-  return `${finding.detail} This is ${LABEL[finding.kind]} in the reference list — an editorial observation, not a claim that the work is wrong.`;
+  return `${finding.detail} This is ${LABEL[finding.kind]} ${WHERE[finding.kind]} — an editorial observation, not a claim that the work is wrong.`;
 }

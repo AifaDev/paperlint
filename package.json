@@ -20,7 +20,8 @@
     "bench:fetch": "node scripts/fetch-benchmarks.mjs",
     "bench:deterministic": "npm run build && node scripts/bench-deterministic.mjs",
     "bench:d1": "npm run build && node scripts/bench-claim-source.mjs",
-    "bench:retraction": "npm run build && node scripts/bench-retraction.mjs"
+    "bench:retraction": "npm run build && node scripts/bench-retraction.mjs",
+    "bench:extraction": "npm run build && node scripts/bench-extraction.mjs"
   },
   "dependencies": {
     "node-html-parser": "^7.0.1"

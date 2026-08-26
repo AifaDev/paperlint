@@ -1,4 +1,5 @@
 import { parse, Node, HTMLElement, NodeType } from "node-html-parser";
+import { IMAGE_MARKER, countGraphics } from "./upload";
 
 // Content extraction for the review pipeline.
 //
@@ -45,6 +46,18 @@ export type ExtractedContent = {
    * produce exactly this shape.
    */
   inlineBoundaries: number[];
+  /**
+   * Graphics present in the document that could NOT be read as text — each one
+   * marked in `text` with IMAGE_MARKER.
+   *
+   * Same law as `inlineBoundaries` above, applied to floats: a figure pasted as
+   * a screenshot carries its caption inside the bitmap, so the caption is
+   * unreadable and the figure looks, to a text-only reviewer, as though it does
+   * not exist. Accusing the author of referencing a missing figure would be
+   * reporting OUR blindness as THEIR error. Checks that reason about what is
+   * absent must abstain while this is > 0 (see checkFloats in references.ts).
+   */
+  graphics: number;
 };
 
 /** Minimal entity decode for text nodes (node-html-parser leaves them raw). */
@@ -75,12 +88,21 @@ function looksLikeHtml(content: string): boolean {
 }
 
 const SKIP_TAGS = new Set(["script", "style", "head", "title", "noscript"]);
+// `td`/`th` are deliberately NOT here. They used to be, and that is what broke
+// tables: each cell ended its own line, so a row became one number per line and
+// "OntoNotes 59924 8262" arrived downstream as three unrelated facts. Cells are
+// separated horizontally instead (see the `td` branch below); `tr` ends the line.
 const BLOCK_TAGS = new Set([
   "p", "div", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6",
-  "tr", "td", "th", "table", "blockquote", "pre", "figure", "figcaption", "section", "article",
+  "tr", "table", "blockquote", "pre", "figure", "figcaption", "section", "article",
 ]);
 
-function walkHtml(node: Node, out: { text: string; links: ExtractedLink[]; inlineBoundaries: number[] }): void {
+/** Wide enough to read as a column break, matching src/upload.ts's PDF gaps. */
+const CELL_SEPARATOR = "   ";
+
+type WalkState = { text: string; links: ExtractedLink[]; inlineBoundaries: number[]; graphics: number };
+
+function walkHtml(node: Node, out: WalkState): void {
   if (node.nodeType === NodeType.TEXT_NODE) {
     // Collapse intra-node whitespace but keep a joining space so two inline
     // nodes never fuse into one word.
@@ -101,6 +123,32 @@ function walkHtml(node: Node, out: { text: string; links: ExtractedLink[]; inlin
 
   if (tag === "br") {
     out.text += "\n";
+    return;
+  }
+
+  // A graphic. Marked rather than dropped, so the pipeline knows the document
+  // contains something it cannot read — and so the person reviewing the
+  // extracted text can SEE where a figure was.
+  if (tag === "img") {
+    const alt = decodeEntities(el.getAttribute("alt") ?? "").replace(/\s+/g, " ").trim();
+    if (out.text && !out.text.endsWith("\n")) out.text += "\n";
+    out.text += `${IMAGE_MARKER}\n`;
+    // The description goes on its OWN line, because that is what makes it a
+    // caption again: the caption pattern in references.ts is line-anchored, so
+    // Word's "Figure 2: Ablation results" recovers a caption the bitmap ate.
+    if (alt) out.text += `${alt}\n`;
+    out.graphics += 1;
+    return;
+  }
+
+  // A table cell. Its contents are flattened onto the row's single line: the
+  // newline is replaced ONE-FOR-ONE by a space so no recorded offset shifts,
+  // then a horizontal separator is appended.
+  if (tag === "td" || tag === "th") {
+    const start = out.text.length;
+    for (const child of el.childNodes) walkHtml(child, out);
+    out.text = out.text.slice(0, start) + out.text.slice(start).replace(/\n/g, " ");
+    if (out.text.length > start) out.text += CELL_SEPARATOR;
     return;
   }
 
@@ -137,7 +185,7 @@ function walkHtml(node: Node, out: { text: string; links: ExtractedLink[]; inlin
 
 function extractHtml(content: string): ExtractedContent {
   const root = parse(content, { comment: false });
-  const out = { text: "", links: [] as ExtractedLink[], inlineBoundaries: [] as number[] };
+  const out: WalkState = { text: "", links: [], inlineBoundaries: [], graphics: 0 };
   walkHtml(root, out);
   // Tidy line-by-line but do NOT reflow across lines: link offsets point into
   // this string, so every transformation past this point must be append-only.
@@ -154,7 +202,7 @@ function extractHtml(content: string): ExtractedContent {
   // Boundaries shift by the same cleanup that moved the links. Only trailing
   // whitespace is removed, so a boundary past the new end is simply dropped.
   const inlineBoundaries = out.inlineBoundaries.filter((offset) => offset <= text.length);
-  return { text, links, format: "html", inlineBoundaries };
+  return { text, links, format: "html", inlineBoundaries, graphics: out.graphics };
 }
 
 // Markdown links first (so their URLs are not double-counted as bare URLs),
@@ -181,8 +229,10 @@ function extractPlain(content: string): ExtractedContent {
     links.push({ href, anchorText: href, offset });
   }
   links.sort((a, b) => a.offset - b.offset);
-  // Plain text has no markup, so nothing can fuse.
-  return { text, links, format: "plain", inlineBoundaries: [] };
+  // Plain text has no markup, so nothing can fuse. Image markers still count:
+  // upload extraction writes them INTO the text, and that text is what comes
+  // back from the editor to be reviewed.
+  return { text, links, format: "plain", inlineBoundaries: [], graphics: countGraphics(text) };
 }
 
 function trimUrl(url: string): string {
@@ -191,6 +241,6 @@ function trimUrl(url: string): string {
 
 export function extractContent(content: string | null | undefined): ExtractedContent {
   const value = String(content ?? "");
-  if (!value.trim()) return { text: "", links: [], format: "plain", inlineBoundaries: [] };
+  if (!value.trim()) return { text: "", links: [], format: "plain", inlineBoundaries: [], graphics: 0 };
   return looksLikeHtml(value) ? extractHtml(value) : extractPlain(value);
 }

@@ -155,11 +155,21 @@ async function handleFile(file) {
     if (!res.ok) throw new Error(res.error);
     $("text").value = res.text;
     lastSource = { kind: res.kind, filename: res.filename };
+    // Say what came out AND what did not. A figure pasted as a screenshot is
+    // unreadable to every check here, and the author is the only person who can
+    // do anything about it — so they are told now, while the text is still in
+    // front of them, rather than left to wonder afterwards why a figure went
+    // unmentioned.
+    const unread = res.graphics
+      ? ` ${res.graphics} image${res.graphics === 1 ? "" : "s"} could not be read as text` +
+        ` — each is marked [image] in the editor, and any caption inside them is invisible to the checks.`
+      : "";
     $("drop-status").textContent =
       `Got ${res.words.toLocaleString()} words` +
       (res.pages ? ` from ${res.pages} pages` : "") +
       (res.truncated ? " — cut off at the 2 MB limit" : "") +
-      ". Check it in the editor, then run the checks.";
+      ". Check it in the editor, then run the checks." +
+      unread;
     showTab("paste");
   } catch (err) {
     $("drop-status").textContent = "Could not read that file — " + err.message;
@@ -385,6 +395,10 @@ function checkRow(check, findings, index) {
           `<span class="tip" role="tooltip">${esc(check.example)}</span></button>`
         : "") +
       `<span class="check-about">${esc(check.about)}</span>` +
+      // WHY it did not run. A check reporting zero because it was satisfied and
+      // one reporting zero because it could not be answered look identical
+      // without this line, and the difference is the whole point of abstaining.
+      (check.reason ? `<span class="check-reason">${esc(check.reason)}</span>` : "") +
     `</span>` +
     `<span class="pill ${pillClass(check)}">${esc(state)}</span>` +
     `<span class="check-count">${check.gate ? "\u2014" : check.count}</span>` +
