@@ -715,15 +715,19 @@ function renderBlocks(painter: Painter, blocks: Block[], style: Style): void {
 // File assembly
 // ---------------------------------------------------------------------------
 
-const CATALOG_ID = 1;
-const PAGES_ID = 2;
-const FIRST_FONT_ID = 3;
-const INFO_ID = 7;
-const FIRST_PAGE_ID = 8;
-
+/** The base-14 names behind F1..F4 — present in every reader, so nothing is
+ *  embedded and the file stays a couple of kilobytes. */
 const FONT_OBJECTS = [
   "/Helvetica", "/Helvetica-Bold", "/Helvetica-Oblique", "/Courier",
 ];
+
+const CATALOG_ID = 1;
+const PAGES_ID = 2;
+const FIRST_FONT_ID = 3;
+// Derived rather than written out: a fifth font would otherwise silently
+// collide with the metadata object and take the whole file with it.
+const INFO_ID = FIRST_FONT_ID + FONT_OBJECTS.length;
+const FIRST_PAGE_ID = INFO_ID + 1;
 
 /** PDF date syntax: D:YYYYMMDDHHmmSS with a UTC marker. */
 function pdfDate(date: Date): string {

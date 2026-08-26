@@ -172,6 +172,16 @@ describe("two-column prose — the false positive that matters", () => {
     assert.deepEqual(acceptedTables(page(RAGGED_RIGHT), {}, 0), []);
   });
 
+  test("three narrow columns stay below the threshold", () => {
+    // The hardest prose case: short lines score lower on the word count, so
+    // this one is REPORTED rather than dropped. It must still be rejected, and
+    // this is the measurement the 0.75 threshold has to clear.
+    const found = findTables(page(THREE_COLUMN_PROSE));
+    near(found[0].confidence, 0.544, "three-column prose");
+    assert.ok(found[0].confidence < TABLE_CONFIDENCE_THRESHOLD);
+    assert.equal(acceptedTables(page(THREE_COLUMN_PROSE)).length, 0);
+  });
+
   test("the structural signals really were table-like — content is what saved it", () => {
     // Guards against passing the test above for the wrong reason. Every line
     // starts at one of exactly two x-positions, for six consecutive rows: if

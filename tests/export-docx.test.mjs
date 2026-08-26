@@ -13,6 +13,7 @@
  */
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
+import { inflateRawSync } from "node:zlib";
 import mammoth from "mammoth";
 import { blocksToDocx } from "../dist/export-docx.js";
 import { htmlToBlocks } from "../dist/html-blocks.js";
@@ -25,6 +26,45 @@ async function render(blocks, options) {
   const buffer = blocksToDocx(blocks);
   const result = await mammoth.convertToHtml({ buffer }, options);
   return { html: result.value, messages: result.messages, buffer };
+}
+
+/** A PNG signature plus a real IHDR — enough for the dimension sniffer. */
+function pngWithSize(width, height) {
+  const ihdr = Buffer.alloc(25);
+  ihdr.writeUInt32BE(13, 0);
+  ihdr.write("IHDR", 4, "latin1");
+  ihdr.writeUInt32BE(width, 8);
+  ihdr.writeUInt32BE(height, 12);
+  ihdr[16] = 8; // bit depth
+  ihdr[17] = 6; // colour type: RGBA
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), ihdr]);
+}
+
+/**
+ * Read one part back by walking the CENTRAL DIRECTORY, the way a real reader
+ * does — not by scanning for local headers. That makes every stored offset
+ * load-bearing here: a wrong one lands mid-file and the inflate throws.
+ */
+function readPart(buffer, wanted) {
+  const end = buffer.length - 22;
+  let at = buffer.readUInt32LE(end + 16);
+  const count = buffer.readUInt16LE(end + 10);
+  for (let i = 0; i < count; i += 1) {
+    assert.equal(buffer.readUInt32LE(at), 0x02014b50, "central directory entry signature");
+    const method = buffer.readUInt16LE(at + 10);
+    const compressed = buffer.readUInt32LE(at + 20);
+    const nameLength = buffer.readUInt16LE(at + 28);
+    const name = buffer.toString("utf8", at + 46, at + 46 + nameLength);
+    const local = buffer.readUInt32LE(at + 42);
+    if (name === wanted) {
+      assert.equal(buffer.readUInt32LE(local), 0x04034b50, "local header signature");
+      const start = local + 30 + buffer.readUInt16LE(local + 26) + buffer.readUInt16LE(local + 28);
+      const body = buffer.subarray(start, start + compressed);
+      return method === 0 ? body : inflateRawSync(body);
+    }
+    at += 46 + nameLength + buffer.readUInt16LE(at + 30) + buffer.readUInt16LE(at + 32);
+  }
+  return null;
 }
 
 describe("the package opens at all", () => {
@@ -70,6 +110,28 @@ describe("the package opens at all", () => {
     const directoryOffset = buffer.readUInt32LE(end + 16);
     assert.equal(entries, 6, "six parts: content types, two rels, document, styles, numbering");
     assert.equal(buffer.readUInt32LE(directoryOffset), 0x02014b50, "offset points at the directory");
+  });
+
+  test("every central-directory offset points at the part it claims", () => {
+    const buffer = blocksToDocx([
+      { type: "paragraph", text: "x" },
+      { type: "image", src: `data:image/png;base64,${RED_DOT_PNG}` },
+    ]);
+    for (const name of [
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "word/document.xml",
+      "word/_rels/document.xml.rels",
+      "word/styles.xml",
+      "word/numbering.xml",
+      "word/media/image1.png",
+    ]) {
+      const part = readPart(buffer, name);
+      assert.ok(part && part.length > 0, `${name} is missing or empty`);
+    }
+    // The declared sizes must be the real ones, or a reader truncates the part.
+    assert.deepEqual(readPart(buffer, "word/media/image1.png"), Buffer.from(RED_DOT_PNG, "base64"));
+    assert.ok(readPart(buffer, "word/document.xml").toString("utf8").endsWith("</w:document>"));
   });
 
   test("the same blocks always produce the same bytes", () => {
@@ -300,6 +362,37 @@ describe("images", () => {
     assert.equal((html.match(/<img/g) || []).length, 1, "only the embeddable one is a picture");
     assert.ok(html.includes("Remote."), "the unembeddable image still contributes its caption");
     assert.ok(html.includes('alt="Local."'), "the surviving picture kept its own caption");
+  });
+
+  test("a picture is placed at its own aspect ratio, clamped to the text column", () => {
+    // Word honours the extent literally: a 1600px-wide figure placed at its
+    // intrinsic size runs off the page. It is clamped to the 6.5in column, and
+    // the height has to come down with it or the figure is stretched.
+    const wide = pngWithSize(1600, 400);
+    const xml = readPart(
+      blocksToDocx([{ type: "image", src: `data:image/png;base64,${wide.toString("base64")}` }]),
+      "word/document.xml",
+    ).toString("utf8");
+    const extent = /<wp:extent cx="(\d+)" cy="(\d+)"\/>/.exec(xml);
+    assert.ok(extent, xml);
+    assert.equal(Number(extent[1]), 5943600, "clamped to the 6.5in text column");
+    assert.equal(Number(extent[2]), 1485900, "height scaled by the same factor (4:1)");
+  });
+
+  test("an image of unknown dimensions still gets a usable placed size", () => {
+    // A truncated or exotic PNG yields no IHDR. A zero extent is a figure
+    // nobody can see, so it falls back to a sane 4x3in rather than 0x0.
+    const headerOnly = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(4),
+    ]);
+    const xml = readPart(
+      blocksToDocx([{ type: "image", src: `data:image/png;base64,${headerOnly.toString("base64")}` }]),
+      "word/document.xml",
+    ).toString("utf8");
+    const extent = /<wp:extent cx="(\d+)" cy="(\d+)"\/>/.exec(xml);
+    assert.ok(extent, xml);
+    assert.ok(Number(extent[1]) > 0 && Number(extent[2]) > 0, "never a zero-sized picture");
   });
 
   test("a JPEG is recognised by its magic bytes even when the URI mislabels it", async () => {

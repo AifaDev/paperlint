@@ -24,6 +24,9 @@ let uploadedBlocks = null;
 let editor = null;
 /** True once the author has changed anything, which makes the marks stale. */
 let edited = false;
+/** True while the editor is rendering its initial blocks. Editor.js emits input
+ *  events as it builds the DOM, and those are not the author typing. */
+let mounting = false;
 let current = null;      // { result, layers, checks, text, blocks, source }
 let selectedId = null;
 
@@ -746,6 +749,7 @@ $("view-edit").onclick = () => showTextMode("edit");
 async function mountEditor() {
   if (!current) return;
   if (editor) return;
+  mounting = true;
   const data = window.plBlocks.toEditorData(current.blocks || []);
   editor = new window.EditorJS({
     holder: "editor",
@@ -772,16 +776,33 @@ async function mountEditor() {
   // contenteditable underneath it. Marking findings stale is a correctness
   // guarantee, not a nicety — a missed signal leaves highlights pointing
   // confidently at the wrong words — so it is backed by the DOM events too.
+  //
+  // They are attached only AFTER the editor reports ready: rendering the
+  // initial blocks emits input events of its own, and attaching earlier made
+  // the document announce itself as edited before the author had touched it.
   const holder = $("editor");
-  holder.addEventListener("input", markStale);
-  holder.addEventListener("paste", markStale);
-  holder.addEventListener("cut", markStale);
+  if (holder.dataset.wired !== "1") {
+    holder.dataset.wired = "1";
+    holder.addEventListener("input", markStale);
+    holder.addEventListener("paste", markStale);
+    holder.addEventListener("cut", markStale);
+  }
+  try { await editor.isReady; } catch {}
+  // One more turn of the event loop: the last render events land after ready.
+  setTimeout(() => { mounting = false; }, 0);
 }
 
-/** Declare the findings stale. Idempotent: the first edit is the only one that
- *  matters, and every later keystroke must stay cheap. */
+/**
+ * Declare the findings stale.
+ *
+ * This deliberately does NOT return early when the flag is already set. An
+ * earlier version did, and a flag that had drifted out of step with the screen
+ * then swallowed the warning entirely — the document was known to be edited and
+ * said nothing about it. The flag is the cheap part; the screen is the part
+ * that must be right, so it is written every time.
+ */
 function markStale() {
-  if (edited) return;
+  if (mounting) return;   // the editor rendering its own blocks is not an edit
   edited = true;
   $("stale-bar").hidden = false;
   // Grey the marks in the other view too, so switching back cannot present

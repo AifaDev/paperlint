@@ -233,6 +233,9 @@ function inlineToRuns(inline: Inline, base: RunStyle = {}): Run[] {
 
   const merged = (): RunStyle => ({ ...base, ...styleOf(stack) });
 
+  // TAG_RE is /g and module-level, so it carries lastIndex between calls. Not
+  // resetting it makes the SECOND paragraph start scanning from an offset that
+  // belonged to the first — tags silently missed, formatting silently lost.
   TAG_RE.lastIndex = 0;
   let match = TAG_RE.exec(source);
   while (match !== null) {
@@ -267,8 +270,13 @@ function inlineToRuns(inline: Inline, base: RunStyle = {}): Run[] {
 /** w:rPr children are order-sensitive in the schema; this is that order. */
 function runProps(style: RunStyle): string {
   const props: string[] = [];
-  if (style.mono) props.push('<w:rStyle w:val="CodeChar"/>');
-  if (style.mono) props.push('<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:cs="Consolas"/>');
+  if (style.mono) {
+    // Both, deliberately: the style ID is what a converter can map back to
+    // <code>, and the explicit font is what makes it look like code in a
+    // reader that ignores character styles entirely.
+    props.push('<w:rStyle w:val="CodeChar"/>');
+    props.push('<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:cs="Consolas"/>');
+  }
   if (style.bold) props.push("<w:b/>");
   if (style.italic) props.push("<w:i/>");
   if (style.highlight) props.push('<w:highlight w:val="yellow"/>');
