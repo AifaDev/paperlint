@@ -759,6 +759,26 @@ function plain(inline: Inline): string {
  * rId1 and rId2 are already spoken for by styles.xml and numbering.xml, hence
  * the offset.
  */
+/**
+ * The image blocks this writer cannot turn into bytes — a remote URL, an SVG,
+ * anything that is not a decodable raster data URI.
+ *
+ * Exported because the caller has to be able to SAY SO. Such an image is
+ * dropped from the .docx (only its caption survives), and a picture that
+ * vanishes out of someone's document without a word is exactly the silent
+ * loss this project refuses everywhere else. The writer keeps producing a
+ * valid file; naming what did not make it is the caller's job.
+ */
+export function unembeddableImages(blocks: Block[]): Array<{ index: number; src: string }> {
+  const out: Array<{ index: number; src: string }> = [];
+  blocks.forEach((block, index) => {
+    if (!block || block.type !== "image") return;
+    const bytes = decodeDataUri(block.src);
+    if (!bytes || !sniffKind(bytes)) out.push({ index, src: String(block.src ?? "").slice(0, 120) });
+  });
+  return out;
+}
+
 function collectMedia(blocks: Block[]): MediaSlot[] {
   const media: MediaSlot[] = [];
   let next = 1;

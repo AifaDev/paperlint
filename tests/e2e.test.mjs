@@ -301,3 +301,69 @@ describe("reference-list integrity, end to end", () => {
     assert.equal(result.counts.reference_findings, 0);
   });
 });
+
+describe("the offset contract", () => {
+  // Every finding carries span_start/span_end, and the surface that displays
+  // them holds the SUBMITTED string — it marks the characters at those offsets
+  // inside the author's own document. So the contract is not "the offsets are
+  // internally consistent", it is "content.slice(span_start, span_end) is the
+  // quoted span". A misplaced highlight is worse than a missing one: it is
+  // just as confident and it accuses the wrong words.
+  //
+  // The way this broke: the sniff fires on ONE real tag anywhere in the
+  // document, so a paper that merely mentions <div> or shows a <table> in a
+  // listing was parsed as HTML — markup stripped, whitespace reflowed — and
+  // every offset then indexed a string the caller had never seen.
+  const PAPER = [
+    "Introduction",
+    "",
+    "We evaluate a kernel support machine for named entity extraction [1].",
+    "A further study (doi:10.9999/not-a-thing) reports similar gains.",
+    "",
+    "References",
+    "",
+    "[1] A. Researcher, Benchmarking entity recognition at scale, 2021.",
+    "[4] C. Writer, A reference nobody cites in the text, 2019.",
+  ].join("\n");
+
+  const fetchImpl = async (url) => {
+    if (url.includes("doi.org/doiRA")) {
+      return jsonResponse(200, [{ DOI: "10.9999/not-a-thing", status: "DOI does not exist" }]);
+    }
+    return url.includes("10.9999") ? new Response("", { status: 404 }) : jsonResponse(200, { message: { title: ["x"] } });
+  };
+
+  const misplaced = (content, findings) =>
+    findings
+      .filter((f) => f.span_start !== null && f.span_end !== null && f.quoted_span !== null)
+      .filter((f) => content.slice(f.span_start, f.span_end) !== f.quoted_span);
+
+  for (const [label, content] of [
+    ["a manuscript with no markup in it", PAPER],
+    ["a manuscript that mentions a tag", `The renderer emits a <div> per row.\n\n${PAPER}`],
+    ["a manuscript showing markup in a listing", `Example:\n\n<table><tr><td>x</td></tr></table>\n\n${PAPER}`],
+  ]) {
+    test(`declared plain: every span points at its own words — ${label}`, async () => {
+      const result = await runReviewPipeline(
+        { content, format: "plain", rowLocale: "en" },
+        { glossary: GLOSSARY, citationStore: memoryStore(), resolveOptions: { fetchImpl } },
+      );
+      assert.ok(result.findings.length > 0, "the fixture must actually trip some checks");
+      assert.deepEqual(
+        misplaced(content, result.findings).map((f) => [f.check, f.quoted_span, content.slice(f.span_start, f.span_end)]),
+        [],
+      );
+    });
+  }
+
+  test("left to the sniff, a mentioned tag moves every span off its words", async () => {
+    // Pinning the behaviour the declaration exists to avoid, so the reason this
+    // parameter is passed cannot be forgotten and quietly dropped.
+    const content = `The renderer emits a <div> per row.\n\n${PAPER}`;
+    const result = await runReviewPipeline(
+      { content, rowLocale: "en" },
+      { glossary: GLOSSARY, citationStore: memoryStore(), resolveOptions: { fetchImpl } },
+    );
+    assert.ok(misplaced(content, result.findings).length > 0);
+  });
+});

@@ -19,6 +19,57 @@ describe("extractContent — format sniffing", () => {
     // has none, and plain text can never have any.
     assert.deepEqual(extractContent(null), { text: "", links: [], format: "plain", inlineBoundaries: [] });
   });
+
+  test("a plain manuscript that MENTIONS a tag still sniffs as HTML", () => {
+    // Documenting the heuristic's real limit, not endorsing it: the sniff sees
+    // one true tag anywhere and takes the whole document as markup.
+    const paper = "We evaluate a kernel support machine.\n\nThe renderer emits a <div> per row.";
+    assert.equal(extractContent(paper).format, "html");
+    assert.notEqual(extractContent(paper).text, paper);
+  });
+});
+
+describe("extractContent — a declared format overrides the sniff", () => {
+  // WHY THIS MATTERS. Findings carry span offsets into `text`, and a caller
+  // holding plain text hands those offsets straight back to a browser that
+  // marks the words at them. If the sniff turns that document into HTML, the
+  // markup is stripped and the whitespace reflowed, so every offset indexes a
+  // string the caller never had — and the highlights land on the wrong words
+  // while looking exactly as confident as correct ones.
+  const paper = [
+    "Introduction",
+    "",
+    "We evaluate a kernel support machine for named entity extraction.",
+    "The renderer emits a <div> per row, and a <table> holds the results.",
+  ].join("\n");
+
+  test('"plain" keeps text byte-identical to the input', () => {
+    const result = extractContent(paper, "plain");
+    assert.equal(result.format, "plain");
+    assert.equal(result.text, paper);
+  });
+
+  test('"plain" preserves every offset, so a span still points at its words', () => {
+    const result = extractContent(paper, "plain");
+    const at = paper.indexOf("kernel support machine");
+    assert.equal(result.text.slice(at, at + "kernel support machine".length), "kernel support machine");
+  });
+
+  test('"html" parses markup even when the sniff would not', () => {
+    const result = extractContent("just words, no tags at all", "html");
+    assert.equal(result.format, "html");
+  });
+
+  test('"auto" is the default and still sniffs', () => {
+    assert.equal(extractContent("<p>Hello</p>", "auto").format, "html");
+    assert.equal(extractContent("<p>Hello</p>").format, "html");
+  });
+
+  test("empty content stays safe whatever the caller declares", () => {
+    for (const format of ["auto", "plain", "html"]) {
+      assert.deepEqual(extractContent("   ", format), { text: "", links: [], format: "plain", inlineBoundaries: [] });
+    }
+  });
 });
 
 describe("extractContent — HTML", () => {

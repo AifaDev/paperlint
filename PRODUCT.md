@@ -100,7 +100,7 @@ Glossary is required wherever the glossary layer is described.
 
 - Real measured eval records in `data/eval/` — benchmark numbers with their
   caveats attached, including which vocabulary produced which rate.
-- 405 passing tests.
+- 422 passing tests.
 - No customers, no testimonials, no pricing, no uptime or accuracy claims. None
   of these may be invented.
 

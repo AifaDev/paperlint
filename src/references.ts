@@ -56,6 +56,45 @@ const MAX_REFERENCE_NUMBER = 400;
  */
 const NO_YEAR_IS_FINE = /\b(?:in press|forthcoming|accepted|to appear|n\.?d\.?|undated|submitted|preprint|under review)\b/i;
 
+/**
+ * An excerpt of the document around a finding, cut on WORD boundaries.
+ *
+ * The quotes here are context windows, not the flagged span itself — the span
+ * is tight (`Figure 3`) and is what gets highlighted; the quote is the
+ * sentence around it, so a reader can judge the finding without opening the
+ * paper. Slicing by character count produced quotes like "eport this in their
+ * Figure 3", which reads as though the tool mangled the author's text and
+ * makes the one thing a reader is asked to check unreadable. Snap to
+ * whitespace, and mark a cut end with an ellipsis so the excerpt does not
+ * pretend to be the whole sentence.
+ */
+function contextQuote(source: string, from: number, to: number): string {
+  const start = Math.max(0, from);
+  const end = Math.min(source.length, to);
+  let left = start;
+  let right = end;
+  // Grow left to the start of the word that was cut into; shrink right to the
+  // end of the last whole word. Newlines count as boundaries.
+  while (left > 0 && !/\s/.test(source[left - 1])) left -= 1;
+  if (right < source.length && !/\s/.test(source[right])) {
+    const back = source.lastIndexOf(" ", right);
+    const nl = source.lastIndexOf("\n", right);
+    const boundary = Math.max(back, nl);
+    if (boundary > left) right = boundary;
+  }
+  const body = source.slice(left, right).trim();
+  // A window that snapped to nothing (one very long token) falls back to the
+  // raw cut: a clipped quote beats no quote at all.
+  if (!body) return source.slice(start, end).trim();
+  // The ellipsis means "the excerpt was cut here". Line boundaries are the
+  // only reliable evidence that it was not: a full stop cannot be trusted for
+  // this, because "Smith et al. report" would read as a finished sentence and
+  // the excerpt would silently claim to start at one.
+  const cutAtFront = left > 0 && !/\n[ \t]*$/.test(source.slice(0, left));
+  const cutAtBack = right < source.length && !/^[ \t]*\n/.test(source.slice(right));
+  return `${cutAtFront ? "…" : ""}${body}${cutAtBack ? "…" : ""}`;
+}
+
 type Entry = { number: number; start: number; end: number; text: string };
 
 /** The numbered entries of the reference list, in document order. */
@@ -155,7 +194,7 @@ export function checkReferences(
     findings.push({
       kind: "cited-not-listed",
       number,
-      quote: flowed.slice(at, at + 40).trim(),
+      quote: contextQuote(flowed, at, at + 40),
       start: at,
       end: at + String(number).length + 2,
       detail: `The text cites [${number}], but the reference list has no entry [${number}].`,
@@ -341,7 +380,7 @@ export function checkFloats(text: string): { findings: ReferenceFinding[]; capti
     findings.push({
       kind: "float-never-referenced",
       number: Number(key.split(" ")[1]),
-      quote: flowedForOffsets.slice(cap.at, cap.at + 80).trim(),
+      quote: contextQuote(flowedForOffsets, cap.at, cap.at + 80),
       start: cap.at,
       end: cap.at + key.length,
       detail: `${key} has a caption but is never referenced in the text.`,
@@ -359,7 +398,7 @@ export function checkFloats(text: string): { findings: ReferenceFinding[]; capti
     findings.push({
       kind: "float-missing",
       number: Number(key.split(" ")[1]),
-      quote: flowedForOffsets.slice(Math.max(0, at - 20), at + 40).trim(),
+      quote: contextQuote(flowedForOffsets, at - 20, at + 40),
       start: at,
       end: at + key.length,
       detail: `The text references ${key}, but no such ${key.split(" ")[0].toLowerCase()} caption exists in the document.`,

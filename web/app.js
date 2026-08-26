@@ -395,6 +395,7 @@ function render(data, fresh) {
   edited = false;
   $("note-clean").hidden = false;
   $("note-stale").hidden = true;
+  $("note-export").hidden = true;
   $("recheck").classList.add("ghost");
   $("recheck").classList.remove("primary");
 }
@@ -923,11 +924,20 @@ $("recheck").onclick = runRecheck;
 /* --- download ------------------------------------------------------------- */
 /* The export runs server-side because that is where the document writers live;
    the browser only names the file and saves it. */
+/** The export's own line on the page. Separate from the staleness strip, which
+ *  answers a different question and must not be repurposed to carry this. */
+function exportNote(text) {
+  const el = $("note-export");
+  el.hidden = !text;
+  if (text) el.querySelector("p").textContent = text;
+}
+
 async function download(format) {
   const btn = format === "pdf" ? $("dl-pdf") : $("dl-docx");
   const was = btn.textContent;
   btn.disabled = true;
   btn.textContent = "Preparing…";
+  exportNote("");
   try {
     const blocks = await currentBlocks();
     const res = await fetch("/api/export", {
@@ -935,6 +945,17 @@ async function download(format) {
       body: JSON.stringify({ format, blocks, title: docTitle() }),
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `export failed (${res.status})`);
+    // A picture the writer could not decode leaves the file with only its
+    // caption. The count rides on the response so the author is told, rather
+    // than finding the gap themselves later.
+    const skipped = Number(res.headers.get("x-paperlint-images-skipped") || 0);
+    if (skipped > 0) {
+      exportNote(
+        `${skipped} image${skipped === 1 ? "" : "s"} could not be written into the .docx — ` +
+        `only pictures embedded in the document can be, not ones linked from the web. ` +
+        `Their captions are still there.`,
+      );
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -952,8 +973,7 @@ async function download(format) {
     btn.textContent = "Failed";
     // Say WHY on the page, not only on the button: a button that flips to
     // "Failed" and back tells the author nothing they can act on.
-    $("note-stale").hidden = false;
-    $("note-stale").querySelector("p").textContent = "Download failed — " + err.message;
+    exportNote("Download failed — " + err.message);
     setTimeout(() => { btn.textContent = was; }, 2200);
   } finally {
     btn.disabled = false;

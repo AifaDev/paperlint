@@ -50,6 +50,21 @@ import {
 export type PipelineInput = {
   /** The document body — rich-text HTML or plain text; extract sniffs. */
   content: string;
+  /**
+   * What `content` actually is, when the caller KNOWS.
+   *
+   * Default "auto" sniffs, which is right for a field that carries either
+   * format (a CMS body). It is wrong for a caller holding plain text, because
+   * the sniff fires on any real tag ANYWHERE in the document — so a paper that
+   * merely mentions `<div>` or shows a `<table>` in a listing is parsed as
+   * HTML, its markup stripped and its whitespace reflowed. Every span offset
+   * then indexes into a string the caller does not have, and the highlights
+   * land on the wrong words while looking exactly as confident as correct ones.
+   *
+   * Declaring "plain" makes `extracted.text === content`, so the offset
+   * contract in doc-model.ts holds by construction rather than by luck.
+   */
+  format?: "auto" | "plain" | "html";
   /** article.content_brief — used only by the consistency check. */
   contentBrief?: string | null;
   /** The caller-declared locale, used to ANCHOR findings. The matching language
@@ -268,7 +283,7 @@ export function checkConsistency(brief: string, bodyText: string): PipelineFindi
 }
 
 export async function runReviewPipeline(input: PipelineInput, deps: PipelineDeps): Promise<PipelineResult> {
-  const extracted = extractContent(input.content);
+  const extracted = extractContent(input.content, input.format ?? "auto");
   const language = detectLanguage(extracted.text);
   const contentHash = sha256(extracted.text);
   const emptyCounts = {

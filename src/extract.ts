@@ -189,8 +189,23 @@ function trimUrl(url: string): string {
   return url.replace(/[.,;:!?'"»«]+$/, "");
 }
 
-export function extractContent(content: string | null | undefined): ExtractedContent {
+/**
+ * `format` lets a caller that KNOWS say so, instead of leaving it to the sniff.
+ *
+ * The sniff exists for one field that genuinely carries either format. It is a
+ * heuristic, and it is wrong in one direction that matters: a plain manuscript
+ * that mentions a real tag — "the renderer emits a <div> per row", a `<table>`
+ * in a code listing — reads as HTML, gets its markup stripped and its
+ * whitespace reflowed, and every offset the pipeline then reports indexes into
+ * a string the caller never had. Passing "plain" keeps `text === content`.
+ */
+export function extractContent(
+  content: string | null | undefined,
+  format: "auto" | "plain" | "html" = "auto",
+): ExtractedContent {
   const value = String(content ?? "");
   if (!value.trim()) return { text: "", links: [], format: "plain", inlineBoundaries: [] };
+  if (format === "plain") return extractPlain(value);
+  if (format === "html") return extractHtml(value);
   return looksLikeHtml(value) ? extractHtml(value) : extractPlain(value);
 }

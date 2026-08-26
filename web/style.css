@@ -612,10 +612,10 @@ button { font-family: var(--sans); cursor: pointer; }
 .note-strip p { margin: 0; font: 400 13.5px/1.65 var(--sans); color: var(--ink-2); max-width: var(--measure); }
 .note-strip b { color: var(--ink); font-weight: 600; }
 .note-strip .tick { width: 16px; height: 16px; color: var(--clean); margin-top: 2px; }
-.note-strip.is-stale { border-left-color: var(--warn-fg); background: var(--warn-bg); border-color: var(--warn-bd); }
-.note-strip.is-stale .tick { color: var(--warn-fg); }
-.note-strip.is-stale p { color: var(--warn-fg); }
-.note-strip.is-stale b { color: var(--ink); }
+.note-strip.is-stale, .note-strip.is-warn { border-left-color: var(--warn-fg); background: var(--warn-bg); border-color: var(--warn-bd); }
+.note-strip.is-stale .tick, .note-strip.is-warn .tick { color: var(--warn-fg); }
+.note-strip.is-stale p, .note-strip.is-warn p { color: var(--warn-fg); }
+.note-strip.is-stale b, .note-strip.is-warn b { color: var(--ink); }
 
 /* A hairline between the re-check action and the two download actions: they do
    different jobs and sat in one undifferentiated row. */

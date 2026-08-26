@@ -39,7 +39,7 @@ const { toMatcherTerms } = require(dist("matcher"));
 const { DEFAULT_MODEL, DEFAULT_BASE_URL, resolveBaseUrl } = require(dist("model"));
 const { serialize } = require(dist("doc-model"));
 const { htmlToBlocks, textToBlocks } = require(dist("html-blocks"));
-const { blocksToDocx } = require(dist("export-docx"));
+const { blocksToDocx, unembeddableImages } = require(dist("export-docx"));
 const { blocksToPdf } = require(dist("export-pdf"));
 const { imagesFromPdf } = require(dist("pdf-images"));
 
@@ -94,6 +94,23 @@ function readHistoryIndex() {
 function writeHistoryIndex(rows) {
   fs.writeFileSync(HISTORY_INDEX, rows.map((row) => JSON.stringify(row)).join("\n") + (rows.length ? "\n" : ""));
 }
+/**
+ * A run id that is unique per run, not per second.
+ *
+ * It used to be `<YYYYMMDDhhmmss>-<hash4>`, which is the SAME id for two runs
+ * of the same text inside one second — exactly what the edit/re-check loop
+ * produces. The second run overwrote the first record while adding a second
+ * index row, so the history showed two entries that opened one run, and
+ * deleting either took both. Milliseconds plus a per-process counter cannot
+ * collide, and the id still sorts by time and still names its content.
+ */
+let runSeq = 0;
+function nextRunId(contentHash) {
+  const stamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 17);
+  runSeq = (runSeq + 1) % 1000;
+  return `${stamp}-${String(runSeq).padStart(3, "0")}-${String(contentHash ?? "0000").slice(0, 4)}`;
+}
+
 function appendHistory(record, secret) {
   // The key must never enter a history record. The record is built without it,
   // and this assertion keeps that true through refactors: if the secret ever
@@ -368,8 +385,35 @@ async function extractDocx(buffer) {
   return { blocks, pages: null };
 }
 
+/**
+ * The uploaded file's name, which is a LABEL and never a path.
+ *
+ * decodeURIComponent throws on a stray "%" — a legal character in a filename —
+ * and this ran inside the extract handler, so a file called "50%.pdf" had its
+ * whole upload rejected as unreadable. The name is decoration on a response;
+ * failing to decode it must cost the name, never the document.
+ */
+function decodeFilename(header) {
+  const raw = String(header ?? "upload");
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 const MAX_UPLOAD = 25 * 1024 * 1024;
 const MAX_TEXT = 2_000_000;
+/**
+ * What /api/export will accept back.
+ *
+ * It has to be at least what /api/extract can HAND OUT, or a document this tool
+ * accepted becomes one it refuses to give back — a 25 MB upload full of figures
+ * returns as blocks carrying those figures as base64 data URIs, which inflates
+ * them by 4/3 before the surrounding JSON. Sized from the upload ceiling rather
+ * than guessed, so the two limits cannot drift apart again.
+ */
+const MAX_EXPORT_BODY = MAX_TEXT + Math.ceil(MAX_UPLOAD * 1.4);
 
 // ---------------------------------------------------------------------------
 const STATIC = {
@@ -388,20 +432,47 @@ function json(res, code, body) {
   res.end(JSON.stringify(body));
 }
 
+/** A body the caller got wrong. Distinguished so it can answer 400, not 500:
+ *  a 500 tells the user this tool broke when in fact their request did. */
+class BadRequest extends Error {}
+
+function parseJsonBody(buffer) {
+  try {
+    return JSON.parse(buffer.toString("utf8") || "{}");
+  } catch (err) {
+    throw new BadRequest(`the request body is not valid JSON (${err.message})`);
+  }
+}
+
+const fail = (res, error) =>
+  json(res, error instanceof BadRequest ? 400 : 500, {
+    ok: false,
+    error: error instanceof Error ? error.message : String(error),
+  });
+
 function readBody(req, res, limit, onDone) {
   const chunks = [];
   let size = 0;
+  let rejected = false;
   req.on("data", (chunk) => {
+    if (rejected) return;
     size += chunk.length;
     if (size > limit) {
-      json(res, 413, { ok: false, error: `body over the ${Math.round(limit / 1e6)} MB limit` });
-      req.destroy();
+      rejected = true;
+      // Do NOT destroy the request here. Killing the socket mid-upload aborts
+      // the client's write before it can read anything back, so the browser
+      // reports a network error and the person is told nothing about WHY —
+      // the one thing this response exists to say. Answer first, ask the
+      // client to close, and let the socket go only once the reply is out.
+      res.writeHead(413, { "content-type": "application/json", connection: "close" });
+      res.end(JSON.stringify({ ok: false, error: `body over the ${Math.round(limit / 1e6)} MB limit` }));
+      res.on("finish", () => req.destroy());
       return;
     }
     chunks.push(chunk);
   });
   req.on("end", () => {
-    if (!res.writableEnded) onDone(Buffer.concat(chunks));
+    if (!rejected && !res.writableEnded) onDone(Buffer.concat(chunks));
   });
 }
 
@@ -465,7 +536,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/api/extract") {
     return readBody(req, res, MAX_UPLOAD, async (buffer) => {
       try {
-        const filename = decodeURIComponent(req.headers["x-filename"] ?? "upload");
+        const filename = decodeFilename(req.headers["x-filename"]);
         let kind;
         if (buffer.slice(0, 5).toString("latin1") === "%PDF-") kind = "pdf";
         else if (buffer.slice(0, 4).toString("latin1") === "PK\x03\x04") kind = "docx";
@@ -489,6 +560,24 @@ const server = http.createServer(async (req, res) => {
             if (used + size > MAX_TEXT) break;
             kept.push(block);
             used += size;
+          }
+          // ONE block can exceed the ceiling on its own — a PDF often yields a
+          // page as a single enormous paragraph — and dropping whole blocks
+          // then kept nothing at all. The document went on to fail the
+          // emptiness test below and was reported as "no extractable text
+          // (scanned or encrypted file?)", which is not merely unhelpful about
+          // a file holding millions of characters: it is false. Cut inside that
+          // first block instead, on a word boundary, and keep the honest
+          // `truncated` flag the UI already shows.
+          if (kept.length === 0 && blocks.length > 0) {
+            const first = blocks[0];
+            if (typeof first.text === "string") {
+              const cut = first.text.slice(0, MAX_TEXT);
+              const space = cut.lastIndexOf(" ");
+              kept.push({ ...first, text: space > MAX_TEXT / 2 ? cut.slice(0, space) : cut });
+            } else {
+              kept.push(first);
+            }
           }
           blocks = kept;
           raw = serialize(blocks).text;
@@ -524,12 +613,28 @@ const server = http.createServer(async (req, res) => {
     return readBody(req, res, MAX_TEXT + 65536, async (buffer) => {
       const started = Date.now();
       try {
-        const { text, brief, key, source, baseUrl, model } = JSON.parse(buffer.toString("utf8") || "{}");
+        const { text, brief, key, source, baseUrl, model } = parseJsonBody(buffer);
+        // An empty document is not a clean paper, and storing it as a run gives
+        // the history a row that says "0 issues" about nothing.
+        if (String(text ?? "").trim().length === 0) {
+          return json(res, 400, { ok: false, error: "there is nothing to check — the document is empty" });
+        }
         const apiKey = (key || process.env.REVIEW_AI_KEY || process.env.GROQ_API_KEY || "").trim();
         const modelActive = Boolean(apiKey);
 
         const result = await runReviewPipeline(
-          { content: String(text ?? ""), contentBrief: brief || null, rowLocale: "en" },
+          {
+            content: String(text ?? ""),
+            // PLAIN, declared rather than sniffed. This browser serializes the
+            // document to plain text before sending it, and the findings' span
+            // offsets are handed straight back to it to place the highlights.
+            // Left to the sniff, a paper that merely MENTIONS a tag ("<div>",
+            // a `<table>` in a listing) would be parsed as HTML, and every
+            // highlight would land on the wrong words in the author's own text.
+            format: "plain",
+            contentBrief: brief || null,
+            rowLocale: "en",
+          },
           {
             glossary,
             citationStore,
@@ -548,7 +653,7 @@ const server = http.createServer(async (req, res) => {
         const checks = checkBreakdown(result, layers);
         delete result.__hadBrief;
 
-        const id = `${new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14)}-${(result.content_hash ?? "0000").slice(0, 4)}`;
+        const id = nextRunId(result.content_hash);
         const title = String(text ?? "").trim().replace(/\s+/g, " ").slice(0, 80) || "(empty)";
         const record = {
           id,
@@ -564,7 +669,7 @@ const server = http.createServer(async (req, res) => {
         appendHistory(record, apiKey);
         json(res, 200, { ok: true, id, ms: record.ms, model: record.model, result, layers, checks });
       } catch (error) {
-        json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        fail(res, error);
       }
     });
   }
@@ -602,9 +707,9 @@ const server = http.createServer(async (req, res) => {
   // src/ and round-trip-tested against the readers already in the project, so
   // an export that cannot be reopened fails the build rather than the user.
   if (req.method === "POST" && url.pathname === "/api/export") {
-    return readBody(req, res, MAX_TEXT + 4_000_000, async (buffer) => {
+    return readBody(req, res, MAX_EXPORT_BODY, async (buffer) => {
       try {
-        const { format, blocks, title } = JSON.parse(buffer.toString("utf8") || "{}");
+        const { format, blocks, title } = parseJsonBody(buffer);
         if (!Array.isArray(blocks) || blocks.length === 0) {
           return json(res, 400, { ok: false, error: "there is nothing to export" });
         }
@@ -615,16 +720,24 @@ const server = http.createServer(async (req, res) => {
         // The filename is quoted and stripped of anything that could break out
         // of the header; it arrives from the browser and is not trusted.
         const safe = String(title || "document").replace(/[^A-Za-z0-9 ._-]/g, "").slice(0, 80) || "document";
+        // A .docx cannot carry a picture this writer could not decode — a
+        // remote URL or an SVG — so such an image leaves the document with
+        // only its caption behind. The PDF writer draws a visible placeholder
+        // instead, so it has already said it. Either way the count travels
+        // with the file, because a figure that disappears from someone's paper
+        // in silence is the one outcome this tool must never produce.
+        const skipped = format === "docx" ? unembeddableImages(blocks).length : 0;
         res.writeHead(200, {
           "content-type": format === "docx"
             ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             : "application/pdf",
           "content-disposition": `attachment; filename="${safe}.${format}"`,
           "content-length": file.length,
+          "x-paperlint-images-skipped": String(skipped),
         });
         res.end(file);
       } catch (error) {
-        json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        fail(res, error);
       }
     });
   }
@@ -632,7 +745,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/api/key-check") {
     return readBody(req, res, 4096, async (buffer) => {
       try {
-        const { key, baseUrl } = JSON.parse(buffer.toString("utf8") || "{}");
+        const { key, baseUrl } = parseJsonBody(buffer);
         if (!key) return json(res, 200, { ok: false, error: "no key provided" });
         // Zero-token probe against the CHOSEN provider's /models, derived from
         // the same resolver the real calls use. Proxied because the browser

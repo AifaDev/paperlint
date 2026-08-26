@@ -15,7 +15,7 @@ import test, { describe } from "node:test";
 import assert from "node:assert/strict";
 import { inflateRawSync } from "node:zlib";
 import mammoth from "mammoth";
-import { blocksToDocx } from "../dist/export-docx.js";
+import { blocksToDocx, unembeddableImages } from "../dist/export-docx.js";
 import { htmlToBlocks } from "../dist/html-blocks.js";
 
 /** A 1x1 PNG. Small enough to inline, real enough to have a valid IHDR. */
@@ -457,5 +457,44 @@ describe("full circle", () => {
     assert.equal(back[3].ordered, true);
     assert.deepEqual(back[3].items, ["Remove attention", "Remove dropout"]);
     assert.deepEqual(back[4].rows, [["Method", "Accuracy"], ["Baseline", "0.72"]]);
+  });
+});
+
+describe("images the writer cannot embed are NAMED, not silently dropped", () => {
+  // A .docx can only carry bytes. A remote URL or an SVG leaves the document
+  // with just its caption — which is the right file to produce, and the wrong
+  // thing to do quietly: the author would find the hole in their paper later,
+  // with nothing to explain it. The caller reports the count, so it has to be
+  // able to ask.
+  const PIXEL =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+  test("a decodable data URI is embeddable", () => {
+    assert.deepEqual(unembeddableImages([{ type: "image", src: PIXEL }]), []);
+  });
+
+  test("a remote URL, an SVG and a malformed data URI are all reported", () => {
+    const blocks = [
+      { type: "paragraph", text: "Figure below." },
+      { type: "image", src: "https://example.org/figure.png", caption: "Figure 1. Remote." },
+      { type: "image", src: PIXEL },
+      { type: "image", src: "data:image/svg+xml;base64,PHN2Zy8+" },
+      { type: "image", src: "data:image/png;base64,notbase64!!" },
+    ];
+    assert.deepEqual(unembeddableImages(blocks).map((x) => x.index), [1, 3, 4]);
+  });
+
+  test("the file is still valid, and the caption of a skipped image survives", async () => {
+    const blocks = [
+      { type: "image", src: "https://example.org/figure.png", caption: "Figure 1. A remote picture." },
+    ];
+    const buffer = blocksToDocx(blocks);
+    const { value: html } = await mammoth.convertToHtml({ buffer });
+    assert.ok(html.includes("A remote picture"), "the author's caption is their words and must survive");
+    assert.equal(unembeddableImages(blocks).length, 1);
+  });
+
+  test("nothing to report for a document with no images at all", () => {
+    assert.deepEqual(unembeddableImages([{ type: "paragraph", text: "no figures here" }]), []);
   });
 });

@@ -218,3 +218,42 @@ describe("checkFloats — figures and tables, both directions", () => {
     assert.deepEqual(kinds2(text), []);
   });
 });
+
+describe("the quote a reader is asked to check", () => {
+  // The quote is a context WINDOW around the finding, not the flagged span —
+  // the span stays tight and is what gets highlighted. A window cut by
+  // character count started and ended mid-word ("eport this in their Figure
+  // 3"), which reads as though the tool mangled the author's sentence, and the
+  // one thing a reader is asked to verify became the thing they cannot read.
+  const midWord = (quote) => /^…?[a-z]/.test(quote) && !/^…/.test(quote);
+
+  test("a float mention deep inside a sentence quotes whole words", () => {
+    const text = "Smith et al. report this in their Figure 3, which we do not reproduce here.\nOur own results appear in Figure 1.\n\nFigure 1. Our results.";
+    const { findings } = checkFloats(text);
+    const missing = findings.find((f) => f.kind === "float-missing");
+    assert.ok(missing, "the fixture must trip the check");
+    assert.ok(!midWord(missing.quote), `quote starts mid-word: ${JSON.stringify(missing.quote)}`);
+    assert.ok(missing.quote.includes("Figure 3"));
+    // The span itself is unchanged and still points at the mention.
+    assert.equal(text.slice(missing.start, missing.end), "Figure 3");
+  });
+
+  test("an excerpt says it is an excerpt", () => {
+    const text = "Smith et al. report this in their Figure 3, which we do not reproduce here and will not discuss further in this section.\n\nFigure 1. Our results.";
+    const { findings } = checkFloats(text);
+    const missing = findings.find((f) => f.kind === "float-missing");
+    assert.ok(missing.quote.startsWith("…"), "a window that cut the front says so");
+  });
+
+  test("a caption quote does not slice a word in half at the end", () => {
+    const text = "We describe the setup.\n\nFigure 1. The pipeline compared against a strong published baseline configuration.";
+    const { findings } = checkFloats(text);
+    const never = findings.find((f) => f.kind === "float-never-referenced");
+    assert.ok(never, "the fixture must trip the check");
+    assert.ok(!/[A-Za-z]…$/.test(never.quote.replace(/…$/, "")) || / /.test(never.quote));
+    // Every word in the quote (minus the ellipsis) appears whole in the source.
+    for (const word of never.quote.replace(/…/g, "").trim().split(/\s+/)) {
+      assert.ok(text.includes(word), `"${word}" is not a whole word from the document`);
+    }
+  });
+});

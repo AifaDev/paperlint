@@ -280,6 +280,16 @@
         Use <b>Re-check</b> above to find the issues in your edited text.</p>
     </div>
 
+    <!-- The export's own line. It must NOT borrow the staleness strip: that one
+         answers "does this describe your current draft", and a download error
+         written into it says the document changed when it did not. -->
+    <div id="note-export" class="note-strip is-warn" hidden>
+      <svg viewBox="0 0 20 20" aria-hidden="true" class="tick">
+        <path d="M10 3v9M10 15.5v1.2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+      <p></p>
+    </div>
+
     <div class="plate-body">
       <div id="editor" class="editor"></div>
       <aside id="object-card" class="object-card" hidden></aside>

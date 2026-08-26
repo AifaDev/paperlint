@@ -1,0 +1,26 @@
+{
+  "generated": "measured directly against runReviewPipeline, both format modes, on 2026-08-26",
+  "question": "Does content.slice(span_start, span_end) actually hold the words a finding says it is about, for the caller that hands those offsets to a browser and marks the text at them?",
+  "why_it_matters": "Step 3 puts the findings inside the editable document as real <mark> elements placed at these offsets. A span that is off does not fail loudly — it highlights the wrong phrase in the author's own paper, and it looks exactly as confident as a correct one.",
+  "verdict": "FIXED by declaring the format instead of sniffing it. web/server.mjs now passes format:\"plain\".",
+  "the_defect": "extractContent sniffs HTML with /<[a-z][a-z0-9-]*(\\s[^>]*)?>/i, which fires on ONE real tag anywhere in the document. A plain manuscript that merely MENTIONS a tag was parsed as HTML: markup stripped, whitespace reflowed, every offset then indexing a string the caller never had.",
+  "cases": [
+    { "case": "no markup anywhere", "format": "auto", "findings_with_spans": 2, "spans_on_their_own_words": 2 },
+    { "case": "no markup anywhere", "format": "plain", "findings_with_spans": 2, "spans_on_their_own_words": 2 },
+    { "case": "mentions <div> in prose", "format": "auto", "findings_with_spans": 2, "spans_on_their_own_words": 0 },
+    { "case": "mentions <div> in prose", "format": "plain", "findings_with_spans": 2, "spans_on_their_own_words": 2 },
+    { "case": "shows <table> in a listing", "format": "auto", "findings_with_spans": 2, "spans_on_their_own_words": 0 },
+    { "case": "shows <table> in a listing", "format": "plain", "findings_with_spans": 2, "spans_on_their_own_words": 2 },
+    { "case": "mentions <p> and <br>", "format": "auto", "findings_with_spans": 2, "spans_on_their_own_words": 0 },
+    { "case": "mentions <p> and <br>", "format": "plain", "findings_with_spans": 2, "spans_on_their_own_words": 2 },
+    { "case": "angle brackets that are NOT tags", "format": "auto", "findings_with_spans": 2, "spans_on_their_own_words": 2 },
+    { "case": "angle brackets that are NOT tags", "format": "plain", "findings_with_spans": 2, "spans_on_their_own_words": 2 }
+  ],
+  "summary": {
+    "sniffed_auto": "6 of 10 spans landed on their own words — every failure is a document that mentions a tag",
+    "declared_plain": "10 of 10",
+    "note": "\"x < y\" is correctly left alone by the sniff: the pattern requires a tag name after the bracket. The failures are real tags in prose, which is the reachable case for a paper about software."
+  },
+  "guarded_by": "tests/e2e.test.mjs \"the offset contract\" — three fixtures assert every span, plus one test that pins the sniffed behaviour so the reason for declaring the format cannot be quietly forgotten.",
+  "not_measured": "Whether the HTML path's own offsets are correct for a caller that really does submit HTML. That caller re-anchors links itself (extractHtml) and does not display spans against the original markup, so it is a different contract and is out of scope here."
+}
