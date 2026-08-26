@@ -237,43 +237,72 @@
     </div>
   </section>
 
-  <!-- ======================================================== STEP 3 — text -->
+  <!-- ======================================================== STEP 3 — edit -->
   <section id="step-text" class="panel" hidden>
     <div class="panel-head">
-      <h2>Your paper, with the issues marked</h2>
-      <span class="head-note">Your text is unchanged — these are annotations, not edits.</span>
+      <h2>Your paper</h2>
+      <div class="head-actions">
+        <div class="seg" role="tablist" aria-label="How to view your paper">
+          <button id="view-marked" class="seg-btn active" role="tab" aria-selected="true" type="button">Issues marked</button>
+          <button id="view-edit" class="seg-btn" role="tab" aria-selected="false" type="button">Edit</button>
+        </div>
+        <div class="dl">
+          <button id="dl-docx" class="ghost" type="button">Download .docx</button>
+          <button id="dl-pdf" class="primary" type="button">Download PDF</button>
+        </div>
+      </div>
     </div>
 
-    <div class="untouched">
-      <svg viewBox="0 0 20 20" aria-hidden="true">
-        <path d="M4 10.5l3.5 3.5L16 5.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
-      </svg>
-      <p>
-        <b>This is your original text, word for word.</b> paperlint never edits your paper — it only
-        marks the places where a check found something. Nothing below has been changed, added or removed.
+    <!-- Reading mode: the text exactly as submitted, with the issues marked. -->
+    <div id="pane-marked">
+      <div class="untouched">
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M4 10.5l3.5 3.5L16 5.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        </svg>
+        <p>
+          <b>This is your text exactly as you submitted it.</b> Nothing here has been changed —
+          the highlights are annotations. Switch to <b>Edit</b> to make changes yourself.
+        </p>
+      </div>
+
+      <div class="ramp" id="ramp-text"></div>
+      <p class="markkey">
+        <span class="mk mk-flag">highlighted<span class="mk-pin">01.1</span></span>
+        &nbsp;a check flagged this spot — the number is the issue's reference &nbsp;·&nbsp;
+        <span class="mk mk-sel">red<span class="mk-pin">01.1</span></span>
+        &nbsp;the one you have selected
       </p>
+
+      <figure class="chart-wrap">
+        <canvas id="chart" role="img"
+          aria-label="Every issue plotted by where it occurs in the paper, grouped by check, sized by severity."></canvas>
+        <figcaption class="fine">
+          Each dot is one issue, placed where it occurs in your paper — left is the beginning, right is the end.
+          Bigger dots are more serious. Click a dot to jump to it.
+        </figcaption>
+      </figure>
+
+      <div class="plate-body">
+        <div id="manuscript" class="manuscript"></div>
+        <aside id="object-card" class="object-card" hidden></aside>
+      </div>
     </div>
 
-    <div class="ramp" id="ramp-text"></div>
-    <p class="markkey">
-      <span class="mk mk-flag">highlighted<span class="mk-pin">01.1</span></span>
-      &nbsp;a check flagged this spot — the number is the issue's reference &nbsp;·&nbsp;
-      <span class="mk mk-sel">red<span class="mk-pin">01.1</span></span>
-      &nbsp;the one you have selected
-    </p>
-
-    <figure class="chart-wrap">
-      <canvas id="chart" role="img"
-        aria-label="Every issue plotted by where it occurs in the paper, grouped by check, sized by severity."></canvas>
-      <figcaption class="fine">
-        Each dot is one issue, placed where it occurs in your paper — left is the beginning, right is the end.
-        Bigger dots are more serious. Click a dot to jump to it.
-      </figcaption>
-    </figure>
-
-    <div class="plate-body">
-      <div id="manuscript" class="manuscript"></div>
-      <aside id="object-card" class="object-card" hidden></aside>
+    <!-- Editing mode: the same document, editable. -->
+    <div id="pane-edit" hidden>
+      <div id="stale-bar" class="stale-bar" hidden>
+        <div>
+          <b>You have edited this paper.</b>
+          <p class="fine">The issues below were found in the version you submitted, so they no longer
+            line up with what you have written. Re-check to find the issues in your edited text.</p>
+        </div>
+        <button id="recheck" class="primary" type="button">Re-check the 16 checks</button>
+      </div>
+      <p class="fine editor-hint">
+        Click any block to edit it. Press <kbd>Tab</kbd> for headings, lists, quotes, code and tables,
+        or use the <b>+</b> button. Your changes stay on this machine.
+      </p>
+      <div id="editor" class="editor"></div>
     </div>
 
     <div class="stepnav">
@@ -291,6 +320,18 @@
   </p>
 </footer>
 
+<script src="/vendor/editorjs/editorjs.umd.js"></script>
+<script src="/vendor/editorjs/header.umd.js"></script>
+<script src="/vendor/editorjs/editorjs-list.umd.js"></script>
+<script src="/vendor/editorjs/quote.umd.js"></script>
+<script src="/vendor/editorjs/code.umd.js"></script>
+<script src="/vendor/editorjs/table.umd.js"></script>
+<script src="/vendor/editorjs/delimiter.umd.js"></script>
+<script src="/vendor/editorjs/marker.umd.js"></script>
+<script src="/vendor/editorjs/inline-code.umd.js"></script>
+<script src="/vendor/editorjs/underline.umd.js"></script>
+<script src="/vendor/editorjs/simple-image.umd.js"></script>
+<script src="/blocks.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

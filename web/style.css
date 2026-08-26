@@ -549,3 +549,71 @@ button { font-family: var(--sans); cursor: pointer; }
 
 /* The vocabulary in use, named beside its size. */
 .ro-note { font-weight: 400; color: var(--ink-3); }
+
+/* =============================================================================
+   THE EDITOR — step 3's second mode.
+   Editor.js injects its own structural CSS; everything here is the paperlint
+   skin over it, so the editing surface reads as the same document the marked
+   view shows rather than as a foreign widget dropped into the page.
+   ========================================================================== */
+.editor {
+  border: 1px solid var(--rule); background: var(--paper);
+  padding: var(--s5) var(--s4);
+  min-height: 320px;
+}
+.editor-hint { margin: 0 0 var(--s4); }
+.editor-hint kbd {
+  font: 500 12px/1 var(--mono); background: var(--paper-3);
+  border: 1px solid var(--rule-2); border-bottom-width: 2px;
+  padding: 2px 5px; color: var(--ink);
+}
+
+/* Editor.js internals, themed. Its own classes are the only hook it offers. */
+.editor .ce-block__content,
+.editor .ce-toolbar__content { max-width: 46rem; }
+.editor .ce-paragraph { font: 400 15px/1.85 var(--sans); color: var(--ink); }
+.editor h1.ce-header { font: 700 26px/1.25 var(--sans); letter-spacing: -0.02em; margin: var(--s5) 0 var(--s2); }
+.editor h2.ce-header { font: 700 21px/1.3 var(--sans); letter-spacing: -0.015em; margin: var(--s5) 0 var(--s2); }
+.editor h3.ce-header { font: 600 17px/1.35 var(--sans); margin: var(--s4) 0 var(--s2); }
+.editor .cdx-quote { border-left: 3px solid var(--link); background: var(--paper-2); }
+.editor .ce-code__textarea,
+.editor .cdx-input { font-family: var(--mono); font-size: 13px; }
+.editor .tc-table { font-size: 14px; }
+.editor .tc-cell { border-color: var(--rule-2); }
+.editor .cdx-marker { background: #FFF3D6; }
+.editor .ce-toolbar__plus,
+.editor .ce-toolbar__settings-btn { color: var(--ink-2); border: 1px solid transparent; }
+.editor .ce-toolbar__plus:hover,
+.editor .ce-toolbar__settings-btn:hover { background: var(--paper-3); color: var(--ink); }
+.editor .ce-popover { border: 1px solid var(--rule-2); border-radius: 8px; box-shadow: 0 10px 30px rgba(20,25,32,.14); }
+.editor .cdx-simple-image__caption { font: 400 13px/1.5 var(--sans); color: var(--ink-2); }
+
+/* --- the stale-marks bar -------------------------------------------------- */
+/* Edits invalidate every finding's offsets. Saying so is the honest move; a
+   highlight that silently drifts onto the wrong words is not. */
+.stale-bar {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--s5); flex-wrap: wrap;
+  margin: 0 0 var(--s4); padding: var(--s4);
+  border: 1px solid var(--warn-bd); border-left: 3px solid var(--warn-fg);
+  background: var(--warn-bg);
+}
+.stale-bar > div { flex: 1 1 380px; min-width: 0; }
+.stale-bar b { font: 600 15px/1.5 var(--sans); color: var(--ink); }
+.stale-bar .fine { margin: var(--s2) 0 0; color: var(--warn-fg); }
+.stale-bar .primary { flex: none; }
+
+/* Marks in the read-only view, once the document has been edited elsewhere. */
+.manuscript.stale mark { background: var(--paper-3); box-shadow: inset 0 -2px 0 var(--rule-2); color: var(--ink-2); }
+.manuscript.stale .pin { background: var(--ink-3); }
+
+/* --- download controls ---------------------------------------------------- */
+.dl { display: flex; align-items: center; gap: var(--s2); }
+
+@media (max-width: 900px) {
+  .stale-bar { flex-direction: column; align-items: stretch; }
+  .stale-bar > div { flex: 0 1 auto; }
+  .stale-bar .primary { align-self: flex-start; }
+  .dl { width: 100%; }
+  .editor { padding: var(--s4) var(--s3); }
+}

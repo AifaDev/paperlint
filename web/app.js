@@ -18,7 +18,13 @@ const MODEL_STORE = "paperlint.model";
 
 let serverKey = false;
 let lastSource = { kind: "paste", filename: null };
-let current = null;      // { result, layers, checks, text }
+/** Blocks from the last upload, or null when the text was pasted. */
+let uploadedBlocks = null;
+/** The Editor.js instance, created on first use. */
+let editor = null;
+/** True once the author has changed anything, which makes the marks stale. */
+let edited = false;
+let current = null;      // { result, layers, checks, text, blocks, source }
 let selectedId = null;
 
 /* --- severity ------------------------------------------------------------- */
@@ -154,7 +160,10 @@ async function handleFile(file) {
     }).then((r) => r.json());
     if (!res.ok) throw new Error(res.error);
     $("text").value = res.text;
-    lastSource = { kind: res.kind, filename: res.filename };
+    // Keep the rich document: the textarea can only hold the flattened text, but
+    // the tables and images live in the blocks and must survive to the editor.
+    uploadedBlocks = res.blocks || null;
+    lastSource = { kind: res.kind, filename: res.filename, rich: Boolean(res.rich), counts: res.counts || null };
     $("drop-status").textContent =
       `Got ${res.words.toLocaleString()} words` +
       (res.pages ? ` from ${res.pages} pages` : "") +
@@ -194,6 +203,7 @@ $("sample").onclick = () => {
   ].join("\n");
   $("brief").value = "Accuracy improved by 45% over the baseline.";
   lastSource = { kind: "paste", filename: null };
+  uploadedBlocks = null;
   $("status").textContent = "Sample loaded — it trips several checks at once.";
 };
 
@@ -219,7 +229,13 @@ $("run").onclick = async () => {
       }),
     }).then((r) => r.json());
     if (!res.ok) throw new Error(res.error);
-    render({ result: res.result, layers: res.layers, checks: res.checks, text: $("text").value, source: lastSource }, true);
+    render({
+      result: res.result, layers: res.layers, checks: res.checks,
+      text: $("text").value,
+      // Pasted text becomes paragraphs; an upload keeps its real structure.
+      blocks: uploadedBlocks || window.plBlocks.textToBlocks_($("text").value),
+      source: lastSource,
+    }, true);
     $("status").textContent = "";
     goTo("results");
     loadHistory();
@@ -234,6 +250,18 @@ $("run").onclick = async () => {
 function render(data, fresh) {
   current = data;
   selectedId = null;
+  if (fresh) {
+    // A new run means a new document: tear the editor down so it cannot show
+    // the previous paper's blocks.
+    if (editor && editor.destroy) { try { editor.destroy(); } catch {} }
+    editor = null;
+    edited = false;
+    const stale = $("stale-bar");
+    if (stale) stale.hidden = true;
+    $("manuscript").classList.remove("stale");
+    $("view-marked").textContent = "Issues marked";
+    showTextMode("marked");
+  }
   const r = data.result;
   const c = r.counts || {};
   const findings = r.findings || [];
@@ -685,6 +713,170 @@ window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(drawChart, 120);
 });
+
+/* =============================================================================
+   THE EDITOR
+
+   Step 3 has two modes over one document. "Issues marked" is the read-only view
+   whose whole value is that it shows the text exactly as submitted, with the
+   findings anchored to real offsets. "Edit" is the same document, editable.
+
+   Editing invalidates the findings, and that is not a detail to paper over: a
+   finding carries character offsets into the submitted text, so the moment a
+   word is inserted every later offset is wrong. Rather than silently drifting
+   the highlights onto the wrong words, the marks are declared STALE and a
+   re-check is offered. An honest "these no longer apply" beats a highlight
+   pointing confidently at the wrong sentence.
+   ========================================================================== */
+
+function showTextMode(which) {
+  const marked = which === "marked";
+  $("view-marked").classList.toggle("active", marked);
+  $("view-edit").classList.toggle("active", !marked);
+  $("view-marked").setAttribute("aria-selected", String(marked));
+  $("view-edit").setAttribute("aria-selected", String(!marked));
+  $("pane-marked").hidden = !marked;
+  $("pane-edit").hidden = marked;
+  if (marked) drawChart(); else mountEditor();
+}
+$("view-marked").onclick = () => showTextMode("marked");
+$("view-edit").onclick = () => showTextMode("edit");
+
+/** Create the editor once, seeded from the document the run was made against. */
+async function mountEditor() {
+  if (!current) return;
+  if (editor) return;
+  const data = window.plBlocks.toEditorData(current.blocks || []);
+  editor = new window.EditorJS({
+    holder: "editor",
+    data,
+    minHeight: 120,
+    placeholder: "Your paper…",
+    tools: {
+      header: { class: window.Header, inlineToolbar: true, config: { levels: [1, 2, 3], defaultLevel: 2 } },
+      list: { class: window.EditorjsList, inlineToolbar: true },
+      quote: { class: window.Quote, inlineToolbar: true },
+      code: { class: window.CodeTool },
+      table: { class: window.Table, inlineToolbar: true },
+      delimiter: { class: window.Delimiter },
+      image: { class: window.SimpleImage },
+      Marker: { class: window.Marker },
+      inlineCode: { class: window.InlineCode },
+      underline: { class: window.Underline },
+    },
+    onChange: markStale,
+  });
+
+  // Editor.js's own onChange is the intended hook, but it is the editor's
+  // internal notion of a change and it does not fire for every mutation of the
+  // contenteditable underneath it. Marking findings stale is a correctness
+  // guarantee, not a nicety — a missed signal leaves highlights pointing
+  // confidently at the wrong words — so it is backed by the DOM events too.
+  const holder = $("editor");
+  holder.addEventListener("input", markStale);
+  holder.addEventListener("paste", markStale);
+  holder.addEventListener("cut", markStale);
+}
+
+/** Declare the findings stale. Idempotent: the first edit is the only one that
+ *  matters, and every later keystroke must stay cheap. */
+function markStale() {
+  if (edited) return;
+  edited = true;
+  $("stale-bar").hidden = false;
+  // Grey the marks in the other view too, so switching back cannot present
+  // stale highlights as if they were current.
+  $("manuscript").classList.add("stale");
+  $("view-marked").textContent = "Issues marked (stale)";
+}
+
+/** The document as it now stands in the editor, or the original if untouched. */
+async function currentBlocks() {
+  if (!editor) return current ? current.blocks || [] : [];
+  const data = await editor.save();
+  return window.plBlocks.fromEditorData(data);
+}
+
+/* Re-check: run the 16 checks against the EDITED text and repoint everything. */
+$("recheck").onclick = async () => {
+  const btn = $("recheck");
+  btn.disabled = true;
+  btn.textContent = "Checking…";
+  try {
+    const blocks = await currentBlocks();
+    const { text } = window.plBlocks.serializeBlocks(blocks);
+    const res = await fetch("/api/review", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        text, brief: $("brief").value || null,
+        key: currentKey() || null, baseUrl: currentBaseUrl() || null,
+        model: currentModel() || null, source: lastSource,
+      }),
+    }).then((r) => r.json());
+    if (!res.ok) throw new Error(res.error);
+    $("text").value = text;
+    edited = false;
+    $("stale-bar").hidden = true;
+    $("manuscript").classList.remove("stale");
+    $("view-marked").textContent = "Issues marked";
+    render({ result: res.result, layers: res.layers, checks: res.checks, text, blocks, source: lastSource }, false);
+    loadHistory();
+    goTo("results");
+  } catch (err) {
+    $("stale-bar").querySelector(".fine").textContent = "Re-check failed — " + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Re-check the 16 checks";
+  }
+};
+
+/* --- download ------------------------------------------------------------- */
+/* The export runs server-side because that is where the document writers live;
+   the browser only names the file and saves it. */
+async function download(format) {
+  const btn = format === "pdf" ? $("dl-pdf") : $("dl-docx");
+  const was = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Preparing…";
+  try {
+    const blocks = await currentBlocks();
+    const res = await fetch("/api/export", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ format, blocks, title: docTitle() }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `export failed (${res.status})`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${docTitle()}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Revoke on the next tick: revoking synchronously can cancel the download
+    // in some browsers before it has read the blob.
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    btn.textContent = "Downloaded";
+    setTimeout(() => { btn.textContent = was; }, 1600);
+  } catch (err) {
+    btn.textContent = "Failed";
+    $("stale-bar").hidden = false;
+    $("stale-bar").querySelector(".fine").textContent = "Download failed — " + err.message;
+    setTimeout(() => { btn.textContent = was; }, 2200);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/** A filename from the source document, falling back to something honest. */
+function docTitle() {
+  const name = lastSource && lastSource.filename;
+  if (name) return String(name).replace(/\.(pdf|docx?)$/i, "");
+  return "paperlint-document";
+}
+
+$("dl-docx").onclick = () => download("docx");
+$("dl-pdf").onclick = () => download("pdf");
 
 /* --- previous runs -------------------------------------------------------- */
 async function loadHistory() {

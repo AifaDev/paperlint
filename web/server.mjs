@@ -39,6 +39,8 @@ const { toMatcherTerms } = require(dist("matcher"));
 const { DEFAULT_MODEL, DEFAULT_BASE_URL, resolveBaseUrl } = require(dist("model"));
 const { serialize } = require(dist("doc-model"));
 const { htmlToBlocks, textToBlocks } = require(dist("html-blocks"));
+const { blocksToDocx } = require(dist("export-docx"));
+const { blocksToPdf } = require(dist("export-pdf"));
 
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
 
@@ -345,6 +347,7 @@ const MAX_TEXT = 2_000_000;
 const STATIC = {
   "/": ["index.html", "text/html; charset=utf-8"],
   "/app.js": ["app.js", "text/javascript; charset=utf-8"],
+  "/blocks.js": ["blocks.js", "text/javascript; charset=utf-8"],
   "/style.css": ["style.css", "text/css; charset=utf-8"],
   "/fonts.css": ["fonts.css", "text/css; charset=utf-8"],
 };
@@ -385,6 +388,18 @@ const server = http.createServer(async (req, res) => {
     }
     res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
     res.end(fs.readFileSync(SLIDES));
+    return;
+  }
+
+  // Vendored editor bundles. Same strict-pattern rule as the fonts below:
+  // the filename is matched, never joined from the request, so nothing outside
+  // web/vendor/editorjs/ is reachable.
+  const vendor = url.pathname.match(/^\/vendor\/editorjs\/([A-Za-z0-9_.-]+\.umd\.js)$/);
+  if (req.method === "GET" && vendor && !vendor[1].includes("..")) {
+    const file = path.join(here, "vendor", "editorjs", vendor[1]);
+    if (!fs.existsSync(file)) { res.writeHead(404).end("not found"); return; }
+    res.writeHead(200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=604800" });
+    res.end(fs.readFileSync(file));
     return;
   }
 
@@ -553,6 +568,37 @@ const server = http.createServer(async (req, res) => {
     } catch {}
     writeHistoryIndex(readHistoryIndex().filter((row) => row.id !== one[1]));
     return json(res, 200, { ok: true });
+  }
+
+  // The author's document, back out as a file. Both writers are hand-rolled in
+  // src/ and round-trip-tested against the readers already in the project, so
+  // an export that cannot be reopened fails the build rather than the user.
+  if (req.method === "POST" && url.pathname === "/api/export") {
+    return readBody(req, res, MAX_TEXT + 4_000_000, async (buffer) => {
+      try {
+        const { format, blocks, title } = JSON.parse(buffer.toString("utf8") || "{}");
+        if (!Array.isArray(blocks) || blocks.length === 0) {
+          return json(res, 400, { ok: false, error: "there is nothing to export" });
+        }
+        if (format !== "docx" && format !== "pdf") {
+          return json(res, 400, { ok: false, error: `unknown format ${String(format)}` });
+        }
+        const file = format === "docx" ? blocksToDocx(blocks) : blocksToPdf(blocks, { title });
+        // The filename is quoted and stripped of anything that could break out
+        // of the header; it arrives from the browser and is not trusted.
+        const safe = String(title || "document").replace(/[^A-Za-z0-9 ._-]/g, "").slice(0, 80) || "document";
+        res.writeHead(200, {
+          "content-type": format === "docx"
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : "application/pdf",
+          "content-disposition": `attachment; filename="${safe}.${format}"`,
+          "content-length": file.length,
+        });
+        res.end(file);
+      } catch (error) {
+        json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+      }
+    });
   }
 
   if (req.method === "POST" && url.pathname === "/api/key-check") {
