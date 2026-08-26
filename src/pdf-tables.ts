@@ -1,4 +1,32 @@
 /**
+ * ============================================================================
+ * NOT WIRED IN — and the measurement that says why is in
+ * data/eval/pdf-table-separation.json. Read it before connecting this.
+ *
+ * The clustering below works. What does not work is TELLING A TABLE FROM
+ * TWO-COLUMN PROSE, because to this algorithm they are the same thing: text in
+ * aligned x-bands. Measured against the recommended 0.75 threshold:
+ *
+ *     two-column prose (aligned)    0.955
+ *     two-column prose (ragged)     0.766
+ *     real 4x3 table                1.000
+ *     real 4x4 table                1.000
+ *     ragged table, missing cell    0.850
+ *
+ * Prose reaches 0.955 while the weakest real table scores 0.850, so the two
+ * distributions OVERLAP: no threshold both accepts real tables and rejects
+ * prose. Academic PDFs are overwhelmingly two-column, so wiring this would
+ * report running prose as a table on the most common input this tool sees —
+ * and a confidently wrong table is worse than no table, which is the whole
+ * reason this file reports a confidence at all.
+ *
+ * THE REAL FIX is a second, independent signal that prose does not have: the
+ * ruling lines a table is drawn with, which live in the page operator list.
+ * Borderless tables would stay out of reach, and should stay undetected rather
+ * than guessed at.
+ * ============================================================================
+ */
+/**
  * pdf-tables.ts — reconstruct tables from positioned PDF text items.
  *
  * WHY THIS EXISTS. A PDF has no notion of a table. A table is drawn as loose

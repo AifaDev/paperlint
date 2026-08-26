@@ -1,0 +1,24 @@
+{
+  "generated": "measured directly against src/pdf-tables.ts findTables()",
+  "question": "Does the confidence score separate a real table from two-column prose well enough to wire this into the upload path?",
+  "verdict": "NO — not wired.",
+  "threshold": 0.75,
+  "confidence_by_case": {
+    "two_column_prose_aligned": 0.955,
+    "two_column_prose_ragged": 0.766,
+    "table_clean_4x3": 1,
+    "table_clean_4x4": 1,
+    "table_ragged_missing_cell": 0.85,
+    "single_row": 0,
+    "empty": 0
+  },
+  "separation": {
+    "highest_confidence_for_PROSE": 0.955,
+    "lowest_confidence_for_a_REAL_TABLE": 0.85,
+    "overlaps": true,
+    "prose_above_threshold": true
+  },
+  "why": "Two-column prose scores at or above the recommended threshold, and above the weakest real table. Because the distributions overlap, no single threshold both accepts real tables and rejects prose. Academic PDFs are overwhelmingly two-column, so wiring this would report running prose as a table on the most common input the tool receives.",
+  "the_real_fix": "Text-position clustering alone cannot distinguish a table from a column layout — both are text in aligned x-bands. A usable PDF table detector needs a second, independent signal: the ruling lines a table is drawn with, which live in the page operator list (pdf.js exposes them) and which prose does not have. Borderless tables would remain out of reach and should stay undetected rather than guessed.",
+  "module_status": "src/pdf-tables.ts is built and unit-tested but is NOT called by web/server.mjs. It is kept because the measurement above is the useful artifact and the clustering is the half that works."
+}
